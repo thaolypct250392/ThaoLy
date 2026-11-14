@@ -1,4 +1,11 @@
 function shareConnectionLink(url){const u=new URL(url,location.origin);const h=new URLSearchParams(location.hash.slice(1));if(h.has('cfg'))u.hash='cfg='+h.get('cfg');else{const raw=localStorage.getItem('millionaire.connection.v31');if(raw)u.hash='cfg='+btoa(String.fromCharCode(...new TextEncoder().encode(raw))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');}return u.href;}
+function homeworkShareLink(id){
+ const url=new URL('./game.html',location.href);
+ url.searchParams.set('solo','1');
+ url.searchParams.set('homework',id);
+ return shareConnectionLink(url.href);
+}
+
 const connectionReady=import('./connection.mjs');
 window.teacherUid='';
 const formulaReady=import('./formula-core.mjs?v=30.5.race').then(m=>{window.renderFormulaText=value=>m.renderRichText(value,{game:true});window.plainFormulaText=m.plainRichText;});

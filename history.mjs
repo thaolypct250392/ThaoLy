@@ -36,9 +36,14 @@ function renderHomework(work,attempts){
    const completed=attempts.filter(a=>a.status==='finished').sort((a,b)=>b.level-a.level||b.score-a.score);
    const summary=document.createElement('p');
    summary.textContent='Máy chủ chưa có lượt làm cho mã bài này. Đối chiếu mã ở màn hình kết quả trên điện thoại.';
-   const link=document.createElement('a');link.href=shareConnectionLink(new URL('./game.html?solo=1&homework='+encodeURIComponent(work.id),location.href).href);link.textContent='Mở link bài tập';
+   const link=document.createElement('a');link.href=homeworkShareLink(work.id);link.textContent='Mở link bài tập';
    const copy=document.createElement('button');copy.textContent='Sao chép link bài này';copy.style.marginInlineStart='12px';
    copy.onclick=async()=>{try{await navigator.clipboard.writeText(link.href);copy.textContent='Đã sao chép';}catch{copy.textContent='Bấm giữ link để sao chép';}};
+   const qrBlock=document.createElement('details');
+   const qrLabel=document.createElement('summary');qrLabel.textContent='Quét mã QR của bài này';
+   const qr=document.createElement('canvas');qr.setAttribute('aria-label','QR bài '+work.name);qr.style.cssText='display:block;max-width:100%;margin:12px auto';
+   qrBlock.append(qrLabel,qr);
+   qrBlock.ontoggle=()=>{if(qrBlock.open&&!qr.dataset.ready){try{window.drawRoomQR(qr,link.href);qr.dataset.ready='true';}catch{qr.replaceWith(document.createTextNode('Hãy dùng nút Sao chép link bài này.'));qrBlock.ontoggle=null;}}};
    const code=document.createElement('p');code.textContent='Mã bài: '+work.id.slice(0,8);
    const pending=attempts.filter(a=>a.status!=='finished');
    const scroll=document.createElement('div');scroll.className='report-scroll';
@@ -55,7 +60,7 @@ function renderHomework(work,attempts){
     for(const value of [rank,a.name,a.className||'—',done?'Đã nộp':'Đang làm',count+'/15',a.level+'/15',a.score])row.insertCell().textContent=value;
     row.cells[3].className=done?'done':'pending';
    }
-   scroll.append(table);article.append(heading,code,link,copy,attempts.length?scroll:summary);byId('homework-results').replaceChildren(article);
+   scroll.append(table);article.append(heading,code,link,copy,qrBlock,attempts.length?scroll:summary);byId('homework-results').replaceChildren(article);
 }
 
 let reportLoad=0;

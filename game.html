@@ -142,7 +142,7 @@ body #teacher .teacher-stage .answer.wrong,body #student .answer.wrong,body #sol
 .home-navigation{position:fixed;top:max(10px,env(safe-area-inset-top));left:12px;z-index:140;padding:10px 16px;border:1px solid #edc15f;border-radius:24px;background:#10245af2;color:#fff4c1;font:700 15px system-ui;cursor:pointer;box-shadow:0 3px 12px #0008}.wrap{padding-top:52px}.victory-content{padding-top:46px}
 
 .rich-content{display:block;white-space:pre-wrap;min-width:0;max-width:100%}.answer>.rich-content{flex:1}.game-script,.game-formula{display:inline-block;white-space:nowrap;overflow-wrap:normal;word-break:normal}.game-script sup,.game-script sub{display:inline;font-size:.7em;line-height:0}.game-formula{max-width:100%;overflow-x:auto;vertical-align:middle}.game-formula math{max-width:none}.game-formula .latex-formula{display:inline;white-space:nowrap}.question-image{display:block;max-width:100%;max-height:360px;width:auto;height:auto;object-fit:contain;margin:10px auto;background:white;border-radius:6px}.formula-image{display:inline-block;vertical-align:middle;max-width:100%;max-height:5em;width:auto;height:auto;background:white;border-radius:3px}.question math,.answer math,.formula-editor math{font-size:1.05em;max-width:100%;color:inherit}.question,.answer{overflow-wrap:anywhere}.question math{vertical-align:middle}.answer{gap:10px;flex-wrap:wrap}.formula-editor{white-space:pre-wrap;min-height:44px;padding:10px;border:1px solid #6483bd;border-radius:8px;background:#081532;color:#fff;overflow-x:auto;font-size:1rem;line-height:1.8}.formula-editor math{margin:0 3px}.formula-warning{color:#ffad91}.review-options label{min-width:0}.review-card .small input[type=checkbox]{width:auto}
-.repair-tools{padding:10px;background:#102650;border-radius:10px;margin:10px 0}.repair-tools label{display:inline-block}.repair-tools button,.repair-dialog button{padding:9px 12px;margin:5px;border:1px solid #8eb6d8;border-radius:8px;background:#fbd77c;color:#112344;cursor:pointer}.repair-dialog{width:min(650px,90vw);border:2px solid #829ec8;border-radius:16px;padding:22px;color:#122443;background:#fff;font:17px system-ui}.repair-dialog::backdrop{background:#0009}.repair-dialog textarea{width:100%;box-sizing:border-box;color:#122443;background:white}.repair-dialog input[type=checkbox]{width:auto}.repair-preview{min-height:65px;padding:15px;border:1px solid #8194b4;background:#f5f8ff;overflow:auto}.repair-error{color:#a32626}.repair-tools select{width:auto;color:#102348;background:#fff}.repair-dialog label{display:block;margin:12px 0}</style><script src="./vendor/katex.min.js"></script><script src="./vendor/mhchem.min.js"></script><script src="./vendor/room-qr.js?v=1"></script><script src="./license.js?v=30.5.assignment-results.6"></script><style>
+.repair-tools{padding:10px;background:#102650;border-radius:10px;margin:10px 0}.repair-tools label{display:inline-block}.repair-tools button,.repair-dialog button{padding:9px 12px;margin:5px;border:1px solid #8eb6d8;border-radius:8px;background:#fbd77c;color:#112344;cursor:pointer}.repair-dialog{width:min(650px,90vw);border:2px solid #829ec8;border-radius:16px;padding:22px;color:#122443;background:#fff;font:17px system-ui}.repair-dialog::backdrop{background:#0009}.repair-dialog textarea{width:100%;box-sizing:border-box;color:#122443;background:white}.repair-dialog input[type=checkbox]{width:auto}.repair-preview{min-height:65px;padding:15px;border:1px solid #8194b4;background:#f5f8ff;overflow:auto}.repair-error{color:#a32626}.repair-tools select{width:auto;color:#102348;background:#fff}.repair-dialog label{display:block;margin:12px 0}</style><script src="./vendor/katex.min.js"></script><script src="./vendor/mhchem.min.js"></script><script src="./vendor/room-qr.js?v=1"></script><script src="./license.js?v=30.5.homework-share.8"></script><style>
  .final-race-table{margin:14px 0;color:#eff6ff;text-align:left}
  .final-race-table h3{margin:0 0 6px;color:#ffdc88;font-size:clamp(17px,2vw,23px)}
  .final-race-table p{margin:4px 0 12px;font-size:.86rem;color:#d6e5ff}
@@ -177,7 +177,7 @@ body #teacher #leaderboard{max-height:min(55vh,530px);overflow-y:auto;scrollbar-
  <div class="showcase-divider"></div><h2 class="mode-title">Chọn chế độ chơi</h2>
  <div class="admin-modes">
   <div class="admin-mode"><div style="font-size:2rem">⭐</div><h3>Chơi cá nhân</h3><p>Học sinh tự chơi bằng link chung hoặc làm bài được giao.</p>
- <label class="label" for="homework-name">Tên bài tập về nhà</label><input id="homework-name" maxlength="110" placeholder="Ví dụ Ôn tập chương 1"><button class="entrance-button" id="create-homework">TẠO LINK BÀI TẬP</button><a class="entrance-button" href="./workspace.html?v=assignment-audio.5#homework">📊 BÁO CÁO BÀI TẬP VỀ NHÀ</a><p id="homework-share" hidden><a id="homework-url"></a> <a id="homework-report" href="./workspace.html?v=assignment-audio.5#homework">Xem báo cáo bài này</a> <button class="tiny-btn" id="copy-homework">Sao chép link</button></p><button class="entrance-button primary" id="admin-open-solo">▶ XEM TRÒ CHƠI</button><div class="share-with-qr"><input id="solo-share-url" readonly aria-label="Link chơi cá nhân"><canvas id="solo-qr" class="share-qr" role="img" aria-label="Mã QR chơi cá nhân" hidden></canvas></div><button class="entrance-button" id="copy-solo-url">📋 Sao chép link cá nhân</button></div>
+ <label class="label" for="homework-name">Tên bài tập về nhà</label><input id="homework-name" maxlength="110" placeholder="Ví dụ Ôn tập chương 1"><button class="entrance-button" id="create-homework">TẠO LINK BÀI TẬP</button><a class="entrance-button" href="./workspace.html?v=homework-share.8#homework">📊 BÁO CÁO BÀI TẬP VỀ NHÀ</a><label for="shared-homework">Chọn bài đã giao để chia sẻ</label><select id="shared-homework"><option value="">— Chọn bài —</option></select><p id="shared-homework-status" role="status"></p><p id="homework-share" hidden><a id="homework-url"></a><span style="display:block">Quét mã này để nộp đúng bài đã giao</span><a id="homework-qr-link" aria-label="Mở bài tập từ mã QR"><canvas id="homework-qr" class="share-qr" aria-label="QR bài tập đã giao" hidden></canvas></a> <a id="homework-report" href="./workspace.html?v=homework-share.8#homework">Xem báo cáo bài này</a> <button class="tiny-btn" id="copy-homework">Sao chép link</button></p><details><summary>Luyện tập cá nhân</summary><button class="entrance-button primary" id="admin-open-solo">▶ XEM TRÒ CHƠI</button><div class="share-with-qr"><input id="solo-share-url" readonly aria-label="Link chơi cá nhân"><p>QR luyện tập cá nhân · Kết quả không vào báo cáo bài đã giao.</p><canvas id="solo-qr" class="share-qr" role="img" aria-label="Mã QR chơi cá nhân" hidden></canvas></div><button class="entrance-button" id="copy-solo-url">📋 Sao chép link cá nhân</button></details></div>
   <div class="admin-mode"><div style="font-size:2rem">🏁</div><h3>Phòng thi đua</h3><p>Link riêng cho từng lớp, cô điều khiển câu hỏi và xem kết quả.</p><button class="entrance-button primary" id="create">🎓 TẠO PHÒNG & LẤY LINK</button></div>
   <div class="admin-mode"><div style="font-size:2rem">🏆</div><h3>Thi đua theo tiến độ riêng</h3><p>Mỗi em tự chuyển câu. Cô theo dõi đường đua và chốt bảng xếp hạng.</p><button class="entrance-button primary" id="create-race">TẠO PHÒNG THI ĐUA</button></div>
  </div>
@@ -778,13 +778,53 @@ $('edit-bank').onclick=async()=>{
 };
 $('activate-bank').onclick=async()=>{const bankId=$('saved-bank-select').value;if(!bankId){$('saved-bank-status').textContent='Cô hãy chọn một bộ đề đã lưu trước nhé.';return;}try{$('activate-bank').disabled=true;const result=await api('activate-bank',{id:bankId});await refreshBankInfo();$('saved-bank-status').textContent=`✅ Đã sử dụng bộ đề: ${result.name}. Chọn chế độ bên dưới để chơi.`;}catch(e){$('saved-bank-status').textContent='⚠ '+e.message;}finally{$('activate-bank').disabled=false;}};
 const roomHistoryLink=document.createElement('a');roomHistoryLink.href='./workspace.html';roomHistoryLink.className='entrance-button';roomHistoryLink.textContent='📚 QUẢN LÝ / KẾT THÚC PHÒNG CŨ';$('admin-bank-status').after(roomHistoryLink);
-const originalTeacherEntry=$('teacher-entry').onclick;$('teacher-entry').onclick=async()=>{if(await googleTeacherSignIn()){originalTeacherEntry();refreshBankInfo();}};
+const originalTeacherEntry=$('teacher-entry').onclick;$('teacher-entry').onclick=async()=>{if(await googleTeacherSignIn()){originalTeacherEntry();refreshBankInfo();refreshHomeworkShare();}};
 $('teacher-entry').textContent='⚙️ GIÁO VIÊN QUẢN TRỊ';
+const sharedHomework=$('shared-homework');
+function showHomeworkShare(){
+ const option=sharedHomework.selectedOptions[0];
+ const id=option?.value;
+ $('homework-share').hidden=!id;
+ if(!id)return;
+ const link=$('homework-url');
+ link.href=homeworkShareLink(id);
+ link.textContent=option.dataset.name;
+ $('homework-qr-link').href=link.href;
+ updateShareQR('homework-qr',link.href);
+ $('homework-report').href='./workspace.html?v=homework-share.8#homework-'+encodeURIComponent(id);
+ $('copy-homework').textContent='Sao chép link bài này';
+}
+function homeworkOption(work,label=work.name){
+ const option=new Option(label,work.id);
+ option.dataset.name=work.name;
+ return option;
+}
+let homeworkShareLoad=0;
+async function refreshHomeworkShare(){
+ const request=++homeworkShareLoad;
+ try{
+  const {homework}=await api('my-solo-results');
+  if(request!==homeworkShareLoad)return;
+  const selected=sharedHomework.value;
+  sharedHomework.replaceChildren(new Option('— Chọn bài —',''),...homework
+   .sort((a,b)=>b.created-a.created)
+   .map(work=>homeworkOption(work,work.name+' · '+work.id.slice(0,8))));
+  sharedHomework.value=homework.some(work=>work.id===selected)?selected:'';
+  $('shared-homework-status').textContent='';
+  showHomeworkShare();
+ }catch(error){
+  if(request===homeworkShareLoad)$('shared-homework-status').textContent='Chưa tải được danh sách bài: '+error.message;
+ }
+}
+sharedHomework.onchange=showHomeworkShare;
 $('create-homework').onclick=async()=>{
  const button=$('create-homework');button.disabled=true;
  try{
   const data=await api('create-homework',{name:$('homework-name').value});
-  const link=$('homework-url');link.href=shareConnectionLink(location.origin+location.pathname+'?solo=1&homework='+encodeURIComponent(data.id));link.textContent=data.name;$('homework-report').href='./workspace.html?v=assignment-audio.5#homework-'+encodeURIComponent(data.id);$('homework-share').hidden=false;
+  sharedHomework.add(homeworkOption(data,data.name+' · '+data.id.slice(0,8)));
+  sharedHomework.value=data.id;
+  showHomeworkShare();
+  refreshHomeworkShare();
  }catch(error){alert(error.message);}finally{button.disabled=false;}
 };
 $('copy-homework').onclick=async()=>{
