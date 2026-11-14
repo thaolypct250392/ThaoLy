@@ -130,14 +130,20 @@ service cloud.firestore {
         && validClass(request.resource.data) && request.resource.data.gender in ['male','female'] && request.resource.data.created == request.time
         && request.resource.data.index == 0 && request.resource.data.currentStartedAt == null
         && request.resource.data.level == 0 && request.resource.data.score == 0 && request.resource.data.speedPoints == 0 && request.resource.data.status == 'intro';}
+      function validHomeworkAttempt(a) {
+        let first = a.bankId + '_home_' + request.auth.uid;
+        return attemptId == first || (
+          attemptId.matches('^' + first + '_retry_[A-Za-z0-9-]+$')
+          && get(/databases/$(database)/documents/soloAttempts/$(first)).data.status == 'finished');
+      }
       allow create: if initialAttempt() && (
         (ownAttempt(request.resource.data) && soloAvailable(request.resource.data.bankId) && !raceBank(request.resource.data.bankId)
-          && (!homeworkBank(request.resource.data.bankId) || attemptId == request.resource.data.bankId + '_home_' + request.auth.uid))
+          && (!homeworkBank(request.resource.data.bankId) || validHomeworkAttempt(request.resource.data)))
         || (attemptTeacher(request.resource.data) && raceBank(request.resource.data.bankId)
           && room(request.resource.data.bankId).phase == 'preparing'
           && attemptId == request.resource.data.bankId + '_' + request.resource.data.studentUid)
       );
-      allow get: if (guest() && attemptId.matches('^[a-zA-Z0-9_-]+_home_' + request.auth.uid + '$'))
+      allow get: if (guest() && resource == null && attemptId.matches('^[a-zA-Z0-9_-]+_home_' + request.auth.uid + '(_retry_[A-Za-z0-9-]+)?$'))
         || ownAttempt(resource.data) || attemptTeacher(resource.data);
       allow list: if ownAttempt(resource.data) || attemptTeacher(resource.data);
       allow update: if ownAttempt(resource.data) && attemptPlayable(resource.data, attemptId) && stable(resource.data,request.resource.data)

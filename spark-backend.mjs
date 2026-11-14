@@ -2,7 +2,7 @@ import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-
 import {getAuth,GoogleAuthProvider,signInWithPopup,signInAnonymously,signOut,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js';
 import {initializeFirestore,getFirestore,doc,collection,getDoc,getDocs,getDocsFromServer,setDoc,updateDoc,writeBatch,query,where,serverTimestamp,onSnapshot,runTransaction,orderBy,limit,arrayUnion,arrayRemove} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
 import {levels} from './samples.mjs';
-import {loadConnection} from './connection.mjs';
+import {loadConnection} from './connection.mjs?v=30.5.homework-scan.9';
 const connection=await loadConnection();
 const OWNER=connection.ownerEmail;
 const config=connection.config;
@@ -203,11 +203,18 @@ export async function api(action,body={}){
   if(!published||Boolean(published.homework)!==Boolean(homeworkId))throw Error('Không tìm thấy bộ đề theo link này.');
   const lock=(await getDoc(doc(studentDb,'soloLocks',link.archiveId))).data();
   if(lock?.activeRooms?.length)throw Error('Bộ đề còn '+lock.activeRooms.length+' phòng chưa được gỡ khóa. Giáo viên vào kho đề, bấm MỞ CHẾ ĐỘ CÁ NHÂN để kiểm tra và kết thúc các phòng còn lại.');
-  const attemptId=homeworkId?homeworkId+'_home_'+s.uid:crypto.randomUUID(),ref=doc(studentDb,'soloAttempts',attemptId);
+  const firstId=homeworkId?homeworkId+'_home_'+s.uid:null;
+  const retry=firstId&&body.replayId?pathId(body.replayId):null;
+  const attemptId=retry?firstId+'_retry_'+retry:firstId||crypto.randomUUID();
+  const ref=doc(studentDb,'soloAttempts',attemptId);
   const initial={studentUid:s.uid,teacherUid:published.teacherUid,teacherEmail:published.teacherEmail,bankId:link.archiveId,name,gender,...(className?{className}:{}),created:serverTimestamp(),index:0,currentStartedAt:null,level:0,score:0,speedPoints:0,status:'intro'};
   let progress;
   if(homeworkId){
    progress=await runTransaction(studentDb,async tx=>{
+    if(retry){
+     const first=(await tx.get(doc(studentDb,'soloAttempts',firstId))).data();
+     if(first?.status!=='finished')throw Error('Em cần nộp lượt đầu trước khi làm lại.');
+    }
     const prior=(await tx.get(ref)).data();
     if(prior)return prior;
     tx.set(ref,initial);return initial;

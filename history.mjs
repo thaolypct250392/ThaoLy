@@ -33,6 +33,7 @@ function setupHomeworkReport(solo){
 function renderHomework(work,attempts){
    const article=document.createElement('article'),heading=document.createElement('h2');
    article.id='homework-'+work.id;heading.textContent=work.name;
+   const isReplay=a=>a.id.startsWith(work.id+'_home_')&&a.id!==work.id+'_home_'+a.studentUid;
    const completed=attempts.filter(a=>a.status==='finished').sort((a,b)=>b.level-a.level||b.score-a.score);
    const summary=document.createElement('p');
    summary.textContent='Máy chủ chưa có lượt làm cho mã bài này. Đối chiếu mã ở màn hình kết quả trên điện thoại.';
@@ -45,6 +46,7 @@ function renderHomework(work,attempts){
    qrBlock.append(qrLabel,qr);
    qrBlock.ontoggle=()=>{if(qrBlock.open&&!qr.dataset.ready){try{window.drawRoomQR(qr,link.href);qr.dataset.ready='true';}catch{qr.replaceWith(document.createTextNode('Hãy dùng nút Sao chép link bài này.'));qrBlock.ontoggle=null;}}};
    const code=document.createElement('p');code.textContent='Mã bài: '+work.id.slice(0,8);
+   const ranked=completed.filter(a=>!isReplay(a));
    const pending=attempts.filter(a=>a.status!=='finished');
    const scroll=document.createElement('div');scroll.className='report-scroll';
    const table=document.createElement('table');
@@ -53,11 +55,11 @@ function renderHomework(work,attempts){
    for(const label of columns){const cell=document.createElement('th');cell.scope='col';cell.textContent=label;header.append(cell);}
    const body=table.createTBody();
    for(const a of [...completed,...pending]){
-    const done=a.status==='finished',rank=done?1+completed.filter(b=>b.level>a.level||b.level===a.level&&b.score>a.score).length:'—';
+    const done=a.status==='finished',rank=done&&!isReplay(a)?1+ranked.filter(b=>b.level>a.level||b.level===a.level&&b.score>a.score).length:'—';
     const count=done?15:a.index+(a.status==='answered'?1:0);
     const row=body.insertRow();
     row.className=done?'submitted':'in-progress';
-    for(const value of [rank,a.name,a.className||'—',done?'Đã nộp':'Đang làm',count+'/15',a.level+'/15',a.score])row.insertCell().textContent=value;
+    for(const value of [rank,a.name,a.className||'—',(done?'Đã nộp':'Đang làm')+(isReplay(a)?' · Làm lại':''),count+'/15',a.level+'/15',a.score])row.insertCell().textContent=value;
     row.cells[3].className=done?'done':'pending';
    }
    scroll.append(table);article.append(heading,code,link,copy,qrBlock,attempts.length?scroll:summary);byId('homework-results').replaceChildren(article);

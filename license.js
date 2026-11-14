@@ -3,13 +3,16 @@ function homeworkShareLink(id){
  const url=new URL('./game.html',location.href);
  url.searchParams.set('solo','1');
  url.searchParams.set('homework',id);
- return shareConnectionLink(url.href);
+ const shared=new URL(shareConnectionLink(url.href));
+ const cfg=new URLSearchParams(shared.hash.slice(1)).get('cfg');
+ if(cfg){shared.searchParams.set('cfg',cfg);shared.hash='';}
+ return shared.href;
 }
 
 const connectionReady=import('./connection.mjs');
 window.teacherUid='';
 const formulaReady=import('./formula-core.mjs?v=30.5.race').then(m=>{window.renderFormulaText=value=>m.renderRichText(value,{game:true});window.plainFormulaText=m.plainRichText;});
-const firebaseReady=import('./spark-backend.mjs?v=30.5.assignment-results.6');
+const firebaseReady=import('./spark-backend.mjs?v=30.5.homework-replay.10');
 firebaseReady.catch(()=>{});
 async function googleTeacherSignIn(){return (await firebaseReady).login();}
 async function googleTeacherSignOut(){return (await firebaseReady).logout();}
