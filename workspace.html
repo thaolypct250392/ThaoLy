@@ -13,9 +13,8 @@ header a{color:#fff}
 nav{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 button,select{font:inherit;border:1px solid #b3bfea;border-radius:8px;padding:8px 12px}
 button{cursor:pointer;background:#e8edff;color:#283478;font-weight:650}
-section,article{background:#fff;border:1px solid #dae3fa;border-radius:16px;padding:clamp(12px,3vw,22px);margin-block:16px}
+section,article,details{background:#fff;border:1px solid #dae3fa;border-radius:16px;padding:clamp(12px,3vw,22px);margin-block:16px}
 #homework{border-top:5px solid #7754cc}
-#individual{border-top:5px solid #208479}
 #live{border-top:5px solid #cb7726}
 a{color:#3645aa}
 .report-scroll{overflow:auto;margin-top:12px}
@@ -39,16 +38,10 @@ tbody tr:nth-child(even){background:#f5f8ff}
     <p id="homework-status" role="status">Đang tải báo cáo…</p>
     <div class="report-filters" id="homework-filters" hidden>
       <label>Chọn bài tập<select id="homework-select"></select></label>
-      <label>Lọc theo lớp hoặc khối<select id="homework-class"></select></label>
     </div>
     <div id="homework-results"></div>
   </section>
-  <section id="individual">
-    <h2>Học sinh chơi cá nhân</h2>
-    <p id="individual-status" role="status">Đang tải lượt chơi…</p>
-    <div id="individual-results"></div>
-  </section>
-  <section id="live"><h2>Phòng trực tiếp</h2><p id="status" role="status"></p><div id="rooms"></div></section>
+  <details id="live"><summary>Phòng trực tiếp</summary><p id="status" role="status"></p><div id="rooms"></div></details>
 </main>
-<script type="module" src="./history.mjs?v=30.5.mobile-live.4"></script>
+<script type="module" src="./history.mjs?v=30.5.assignment-audio.5"></script>
 </html>

@@ -177,7 +177,7 @@ body #teacher #leaderboard{max-height:min(55vh,530px);overflow-y:auto;scrollbar-
  <div class="showcase-divider"></div><h2 class="mode-title">Chọn chế độ chơi</h2>
  <div class="admin-modes">
   <div class="admin-mode"><div style="font-size:2rem">⭐</div><h3>Chơi cá nhân</h3><p>Học sinh tự chơi bằng link chung hoặc làm bài được giao.</p>
- <label class="label" for="homework-name">Tên bài tập về nhà</label><input id="homework-name" maxlength="110" placeholder="Ví dụ Ôn tập chương 1"><button class="entrance-button" id="create-homework">TẠO LINK BÀI TẬP</button><a class="entrance-button" href="./workspace.html?v=mobile-live.4#homework">📊 BÁO CÁO BÀI TẬP VỀ NHÀ</a><p id="homework-share" hidden><a id="homework-url"></a> <a id="homework-report" href="./workspace.html?v=mobile-live.4#homework">Xem báo cáo bài này</a> <button class="tiny-btn" id="copy-homework">Sao chép link</button></p><button class="entrance-button primary" id="admin-open-solo">▶ XEM TRÒ CHƠI</button><div class="share-with-qr"><input id="solo-share-url" readonly aria-label="Link chơi cá nhân"><canvas id="solo-qr" class="share-qr" role="img" aria-label="Mã QR chơi cá nhân" hidden></canvas></div><button class="entrance-button" id="copy-solo-url">📋 Sao chép link cá nhân</button></div>
+ <label class="label" for="homework-name">Tên bài tập về nhà</label><input id="homework-name" maxlength="110" placeholder="Ví dụ Ôn tập chương 1"><button class="entrance-button" id="create-homework">TẠO LINK BÀI TẬP</button><a class="entrance-button" href="./workspace.html?v=assignment-audio.5#homework">📊 BÁO CÁO BÀI TẬP VỀ NHÀ</a><p id="homework-share" hidden><a id="homework-url"></a> <a id="homework-report" href="./workspace.html?v=assignment-audio.5#homework">Xem báo cáo bài này</a> <button class="tiny-btn" id="copy-homework">Sao chép link</button></p><button class="entrance-button primary" id="admin-open-solo">▶ XEM TRÒ CHƠI</button><div class="share-with-qr"><input id="solo-share-url" readonly aria-label="Link chơi cá nhân"><canvas id="solo-qr" class="share-qr" role="img" aria-label="Mã QR chơi cá nhân" hidden></canvas></div><button class="entrance-button" id="copy-solo-url">📋 Sao chép link cá nhân</button></div>
   <div class="admin-mode"><div style="font-size:2rem">🏁</div><h3>Phòng thi đua</h3><p>Link riêng cho từng lớp, cô điều khiển câu hỏi và xem kết quả.</p><button class="entrance-button primary" id="create">🎓 TẠO PHÒNG & LẤY LINK</button></div>
   <div class="admin-mode"><div style="font-size:2rem">🏆</div><h3>Thi đua theo tiến độ riêng</h3><p>Mỗi em tự chuyển câu. Cô theo dõi đường đua và chốt bảng xếp hạng.</p><button class="entrance-button primary" id="create-race">TẠO PHÒNG THI ĐUA</button></div>
  </div>
@@ -200,7 +200,7 @@ body #teacher #leaderboard{max-height:min(55vh,530px);overflow-y:auto;scrollbar-
  <div id="solo-finished" hidden><div class="showcase-kicker">✨ HÀNH TRÌNH HOÀN THÀNH ✨</div><div style="font-size:3rem">🏆🎊🏆</div><h2 id="solo-congrats">CHÚC MỪNG!</h2><div class="solo-result-number" id="solo-result-money"></div><p id="solo-result-stats"></p><button class="btn gold solo-action" id="solo-replay">🔄 CHƠI LẠI</button></div>
  <button class="solo-back" id="solo-back">← Quay về trang chính</button>
 </section></main>
-<audio id="sound-intro" src="./media/entrance-theme.mp3" preload="none"></audio><audio id="sound-bg" src="./media/classic-question-soft.mp3" preload="none" loop></audio><audio id="sound-correct" src="./media/correct.mp3" preload="none"></audio><audio id="sound-wrong" src="./media/wrong.mp3" preload="none"></audio>
+<button type="button" id="test-phone-audio" class="tiny-btn" hidden>🔊 Bật và thử âm thanh</button><audio id="sound-intro" src="./media/entrance-theme.mp3" preload="none"></audio><audio id="sound-bg" src="./media/classic-question-soft.mp3" preload="none" loop></audio><audio id="sound-correct" src="./media/correct.mp3" preload="none"></audio><audio id="sound-wrong" src="./media/wrong.mp3" preload="none"></audio>
 <div style="text-align:center;padding:12px"><span id="google-identity">Chưa đăng nhập</span> <button onclick="googleTeacherSignIn()">Đăng nhập bằng Google</button> <button onclick="googleTeacherSignOut()">Đăng xuất</button> <a href="./admin-console.html">Quản trị chủ sở hữu</a> · <a href="./workspace.html">Phòng thi và kết quả của tôi</a> <button onclick="copySoloTeacherLink()">Sao chép link cá nhân cho học sinh</button></div><footer class="footer">Phiên bản tương tác lớp học • Đúng: lên một bậc • Sai: đứng nguyên • Cùng tiến bộ đến câu cuối</footer>
 </div><script>
 const $=id=>document.getElementById(id), query=new URLSearchParams(location.search);
@@ -215,7 +215,12 @@ async function api(action,data={},method='POST'){
  return sparkApi(action,data);
 }
 function status(id,text){$(id).textContent=text;}
-function show(which){['home','teacher-setup','join-screen','teacher','student','solo'].forEach(id=>$(id).classList.toggle('hidden',id!==which));document.body.classList.remove('view-home','view-join-screen','view-teacher-setup','view-solo');if(['home','join-screen','teacher-setup','solo'].includes(which))document.body.classList.add('view-'+which);if(which!=='home'&&!$('sound-intro').paused){$('sound-intro').pause();$('welcome-sound').classList.remove('is-playing');$('welcome-sound').textContent='🔊 Bật nhạc mở màn';}}
+function show(which){const soundTest=$('test-phone-audio');
+ if(which==='solo'||which==='join-screen'||which==='student'){
+  const anchor=$(which==='solo'?'solo-start':which==='join-screen'?'join':'student-sound');
+  anchor.before(soundTest);soundTest.hidden=false;
+ }else soundTest.hidden=true;
+ ['home','teacher-setup','join-screen','teacher','student','solo'].forEach(id=>$(id).classList.toggle('hidden',id!==which));document.body.classList.remove('view-home','view-join-screen','view-teacher-setup','view-solo');if(['home','join-screen','teacher-setup','solo'].includes(which))document.body.classList.add('view-'+which);if(which!=='home'&&!$('sound-intro').paused){$('sound-intro').pause();$('welcome-sound').classList.remove('is-playing');$('welcome-sound').textContent='🔊 Bật nhạc mở màn';}}
 function openJoin(room=''){const roomCode=String(room||'').trim();$('join-pin').value=roomCode;$('join-pin-field').classList.toggle('hidden',!!roomCode);$('join-room-code').classList.toggle('hidden',!roomCode);$('join-room-code').textContent=roomCode?'✦ PHÒNG THI '+roomCode+' ✦':'';show('join-screen');}
 let soloState=null;
 // Đặt ảnh sân khấu thật ở phía trên câu hỏi cho giáo viên, giống giao diện học sinh.
@@ -329,6 +334,7 @@ const raceNodes=new Map();let roomLimitMs=30000;let audioEnabled=true,introStart
 let resultAudioContext=null,questionAudioSource=null,resultAudioSource=null,pendingResult=null,audioUnlocked=false;const resultBuffers={};let studentAnswered=false;
 function primeResultAudio(){
  try{
+  try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch{}
   if(!resultAudioContext){const AudioCtor=window.AudioContext||window.webkitAudioContext;if(!AudioCtor){if(questionAudioActive())backgroundMusic();return;}resultAudioContext=new AudioCtor({latencyHint:'interactive'});
    for(const [key,src] of [['correct','./media/correct.mp3'],['wrong','./media/wrong.mp3'],['question','./media/classic-question-soft.mp3']])fetch(src).then(r=>r.arrayBuffer()).then(b=>resultAudioContext.decodeAudioData(b)).then(decoded=>{resultBuffers[key]=decoded;if(pendingResult?.key===key&&pendingResult.until>Date.now()&&resultAudioContext.state==='running'){const {right}=pendingResult;playResultAudio(right);}if(key==='question'&&(role==='solo'?soloState?.started&&!soloState.opening&&soloState.selected===null:raceState?raceState.status==='playing':currentPhase==='question'))backgroundMusic();}).catch(()=>{});
   }
@@ -777,7 +783,7 @@ $('create-homework').onclick=async()=>{
  const button=$('create-homework');button.disabled=true;
  try{
   const data=await api('create-homework',{name:$('homework-name').value});
-  const link=$('homework-url');link.href=shareConnectionLink(location.origin+location.pathname+'?solo=1&homework='+encodeURIComponent(data.id));link.textContent=data.name;$('homework-report').href='./workspace.html?v=mobile-live.4#homework-'+encodeURIComponent(data.id);$('homework-share').hidden=false;
+  const link=$('homework-url');link.href=shareConnectionLink(location.origin+location.pathname+'?solo=1&homework='+encodeURIComponent(data.id));link.textContent=data.name;$('homework-report').href='./workspace.html?v=assignment-audio.5#homework-'+encodeURIComponent(data.id);$('homework-share').hidden=false;
  }catch(error){alert(error.message);}finally{button.disabled=false;}
 };
 $('copy-homework').onclick=async()=>{
@@ -790,6 +796,24 @@ const welcomeAudio=$('sound-intro'),welcomeButton=$('welcome-sound');welcomeAudi
 $('intro-video').onended=finishIntro;$('skip-intro').onclick=()=>{primeResultAudio();finishIntro();};
 $('victory-close').onclick=()=>{$('victory-cover').hidden=true;};
 $('show-race').onclick=()=>$('race-section').scrollIntoView({behavior:'smooth',block:'start'});
+function testPhoneAudio(){
+ audioEnabled=true;
+ studentAudioOptIn=true;
+ try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch{}
+ primeResultAudio();
+ const cue=$('sound-correct'),button=$('test-phone-audio');
+ cue.currentTime=0;
+ cue.play().then(()=>{
+  button.textContent='Phát lại tiếng thử';
+  cue.addEventListener('ended',()=>{if(questionAudioActive())backgroundMusic();},{once:true});
+ }).catch(()=>{
+  if(resultAudioContext?.state==='running'){playResultTone(true);button.textContent='Phát lại tiếng thử';}
+  else button.textContent='Mở link bằng Safari hoặc Chrome rồi thử lại';
+ });
+}
+const phoneAudioTest=$('test-phone-audio');
+phoneAudioTest.onclick=testPhoneAudio;
+
 function enableQuestionSound(){
  audioEnabled=true;
  primeResultAudio();

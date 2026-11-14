@@ -1,53 +1,32 @@
 const byId=id=>document.getElementById(id);
 function tableRows(players){const table=document.createElement('table');for(const p of players){const tr=document.createElement('tr');for(const value of [p.name,p.level+'/15',p.score+' điểm',p.speedPoints+' điểm tốc độ']){const td=document.createElement('td');td.textContent=value;tr.append(td);}table.append(tr);}return table;}
-const classKey=a=>(a.className||'').trim().replace(/\s+/g,' ').toLocaleUpperCase('vi');
-const gradeKey=label=>/^(?:LỚP |KHỐI )?(1[012]|[1-9])(?!\d)/u.exec(label)?.[1];
-
 function setupHomeworkReport(solo){
- const workSelect=byId('homework-select'),classSelect=byId('homework-class');
- const previousWork=workSelect.value,previousClass=classSelect.value;
- const works=[...solo.homework].sort((a,b)=>b.created-a.created);
+ const select=byId('homework-select'),previous=select.value;
+ const works=[...solo.homework].sort((a,b)=>a.name.localeCompare(b.name,'vi')||b.created-a.created);
+ const names=new Map();
+ for(const work of works)names.set(work.name,(names.get(work.name)||0)+1);
  byId('homework-filters').hidden=!works.length;
- byId('homework-status').textContent=works.length
-  ?works.length+' bài đã giao · Chọn bài và lớp để xem kết quả.'
-  :'Chưa có bài đã giao. Vào Chơi cá nhân, nhập tên bài rồi bấm Tạo link bài tập.';
- workSelect.replaceChildren(...works.map(work=>new Option(
-  work.name+' · '+new Date(work.created).toLocaleString('vi-VN')+' · '+work.id.slice(0,8),work.id)));
- if(!works.length)return;
+ byId('homework-status').textContent=works.length?'':'Chưa có bài đã giao. Vào Chơi cá nhân rồi bấm Tạo link bài tập.';
+ select.replaceChildren(new Option('— Chọn tên bài tập —',''),...works.map(work=>new Option(
+  names.get(work.name)>1?work.name+' · '+new Date(work.created).toLocaleString('vi-VN')+' · '+work.id.slice(0,8):work.name,work.id)));
  const target=location.hash.startsWith('#homework-')?location.hash.slice(10):'';
- if(works.some(work=>work.id===previousWork))workSelect.value=previousWork;
- else if(works.some(work=>work.id===target))workSelect.value=target;
-
- function render(){
-  const work=works.find(entry=>entry.id===workSelect.value);
-  const selection=classSelect.value;
-  const attempts=solo.attempts.filter(a=>a.bankId===work.id&&(
-   selection==='all'||selection==='missing'&&!classKey(a)||
-   selection==='class:'+classKey(a)||selection.startsWith('grade:')&&selection.slice(6)===gradeKey(classKey(a))));
-  renderHomework(work,attempts);
- }
- function updateClasses(selection){
-  const attempts=solo.attempts.filter(a=>a.bankId===workSelect.value);
-  const labels=[...new Set(attempts.map(classKey).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi',{numeric:true}));
-  const grades=[...new Set(labels.map(gradeKey).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
-  classSelect.replaceChildren(new Option('Tất cả lớp','all'),
-   ...grades.map(grade=>new Option('Khối '+grade,'grade:'+grade)),
-   ...labels.map(label=>new Option(label,'class:'+label)));
-  if(attempts.some(a=>!classKey(a)))classSelect.add(new Option('Chưa ghi lớp','missing'));
-  if([...classSelect.options].some(option=>option.value===selection))classSelect.value=selection;
-  render();
- }
- workSelect.onchange=()=>updateClasses('all');
- classSelect.onchange=render;
- updateClasses(previousWork===workSelect.value?previousClass:'all');
+ const wanted=select.dataset.initialized?previous:target;
+ if(works.some(work=>work.id===wanted))select.value=wanted;
+ select.dataset.initialized='true';
+ select.onchange=()=>{
+  const work=works.find(entry=>entry.id===select.value);
+  if(!work){byId('homework-results').replaceChildren();return;}
+  renderHomework(work,solo.attempts.filter(attempt=>attempt.bankId===work.id));
+ };
+ select.onchange();
 }
 
 function renderHomework(work,attempts){
    const article=document.createElement('article'),heading=document.createElement('h2');
    article.id='homework-'+work.id;heading.textContent=work.name;
    const completed=attempts.filter(a=>a.status==='finished').sort((a,b)=>b.level-a.level||b.score-a.score);
-   const summary=document.createElement('p');summary.textContent=completed.length+' đã nộp · '+(attempts.length-completed.length)+' đang làm';
-   if(!attempts.length)summary.textContent='Chưa có lượt làm trong nhóm này.';
+   const summary=document.createElement('p');
+   summary.textContent='Chưa ghi nhận lượt làm qua link của bài này.';
    const link=document.createElement('a');link.href=shareConnectionLink(new URL('./game.html?solo=1&homework='+encodeURIComponent(work.id),location.href).href);link.textContent='Mở link bài tập';
    const pending=attempts.filter(a=>a.status!=='finished');
    const scroll=document.createElement('div');scroll.className='report-scroll';
@@ -64,7 +43,7 @@ function renderHomework(work,attempts){
     for(const value of [rank,a.name,a.className||'—',done?'Đã nộp':'Đang làm',count+'/15',a.level+'/15',a.score])row.insertCell().textContent=value;
     row.cells[3].className=done?'done':'pending';
    }
-   scroll.append(table);article.append(heading,summary,link,scroll);byId('homework-results').replaceChildren(article);
+   scroll.append(table);article.append(heading,link,attempts.length?scroll:summary);byId('homework-results').replaceChildren(article);
 }
 
 let reportLoad=0;
@@ -73,13 +52,11 @@ async function load(){
  const [rooms,results]=await Promise.allSettled([window.sparkApi('my-rooms',{}),window.sparkApi('my-solo-results',{})]);
  if(current!==reportLoad)return;
  byId('rooms').replaceChildren();
- byId('individual-results').replaceChildren();
  byId('homework-results').replaceChildren();
  byId('homework-filters').hidden=true;
  if(rooms.status==='rejected')byId('status').textContent='Chưa tải được phòng trực tiếp: '+rooms.reason.message;
  if(results.status==='rejected'){
   byId('homework-status').textContent='Chưa tải được báo cáo: '+results.reason.message;
-  byId('individual-status').textContent='Chưa tải được lượt chơi: '+results.reason.message;
  }
  if(rooms.status==='fulfilled'){
   const live=rooms.value;
@@ -89,27 +66,7 @@ async function load(){
  if(results.status==='fulfilled'){
   const solo=results.value;
   setupHomeworkReport(solo);
-  const homeworkIds=new Set(solo.homework.map(work=>work.id));
-  const individual=solo.attempts.filter(a=>!homeworkIds.has(a.bankId));
-  const finished=individual.filter(a=>a.status==='finished').length;
-  byId('individual-status').textContent=individual.length
-   ?finished+' lượt đã hoàn thành · '+(individual.length-finished)+' lượt đang làm'
-   :'Chưa ghi nhận lượt chơi qua link cá nhân chung. Kết quả qua link bài tập nằm ở mục trên.';
-  if(individual.length){
-   const scroll=document.createElement('div');scroll.className='report-scroll';
-   const table=document.createElement('table'),head=table.createTHead().insertRow();
-   for(const label of ['Học sinh','Lớp','Bắt đầu','Trạng thái','Đã làm','Đúng','Tổng điểm']){
-    const th=document.createElement('th');th.scope='col';th.textContent=label;head.append(th);
-   }
-   const body=table.createTBody();
-   for(const a of individual){
-    const done=a.status==='finished',row=body.insertRow();
-    const count=done?15:a.index+(a.status==='answered'?1:0);
-    for(const value of [a.name,a.className||'—',new Date(a.created).toLocaleString('vi-VN'),done?'Hoàn thành':'Đang làm',count+'/15',a.level+'/15',a.score])row.insertCell().textContent=value;
-    row.cells[3].className=done?'done':'pending';
-   }
-   scroll.append(table);byId('individual-results').append(scroll);
-  }
+
  }
  if(current===1&&location.hash.startsWith('#homework'))byId(location.hash.slice(1))?.scrollIntoView();
 }
