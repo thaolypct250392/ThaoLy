@@ -1273,7 +1273,7 @@ window.drawRoomQR = (canvas, url) => {
   code.addData(url);
   code.make();
   const size = code.getModuleCount();
-  const scale = Math.max(2, Math.floor(240 / (size + 8)));
+  const scale = Math.max(2, Math.floor(480 / (size + 8)));
   canvas.width = canvas.height = (size + 8) * scale;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#fff';

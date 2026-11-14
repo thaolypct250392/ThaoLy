@@ -1,3 +1,4 @@
+import {requireBuyer,buyerLogout} from './buyer-license.mjs';
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
 import {getAuth,GoogleAuthProvider,signInWithPopup,signInAnonymously,signOut,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js';
 import {initializeFirestore,getFirestore,doc,collection,getDoc,getDocs,getDocsFromServer,setDoc,updateDoc,writeBatch,query,where,serverTimestamp,onSnapshot,runTransaction,orderBy,limit,arrayUnion,arrayRemove} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
@@ -16,11 +17,11 @@ onAuthStateChanged(auth,user=>{window.teacherUid=user?.uid||'';const label=docum
 function reset(){answerRecovery.clear();for(const entry of snapshots.values()){entry.cancel?.();entry.off?.();}snapshots.clear();}
 window.addEventListener('online',reset);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reset();});
-async function teacher(){await auth.authStateReady();const u=auth.currentUser;if(!u||!u.emailVerified||!u.providerData.some(p=>p.providerId==='google.com'))throw Error('Cần đăng nhập bằng Google.');if(u.email!==OWNER){const g=await getDoc(doc(db,'sparkAccess',u.email));if(!g.data()?.enabled)throw Error('Gmail chưa được cấp quyền hoặc đã khóa.');}return u;}
+async function teacher(){await auth.authStateReady();const u=auth.currentUser;if(!u||!u.emailVerified||!u.providerData.some(p=>p.providerId==='google.com'))throw Error('Cần đăng nhập bằng Google.');await requireBuyer(u.email);if(u.email!==OWNER){const g=await getDoc(doc(db,'sparkAccess',u.email));if(!g.data()?.enabled)throw Error('Gmail chưa được cấp quyền hoặc đã khóa.');}return u;}
 let guestSigningIn;
 async function student(){await guestAuth.authStateReady();if(!guestAuth.currentUser){guestSigningIn??=signInAnonymously(guestAuth).finally(()=>{guestSigningIn=null;});await guestSigningIn;}return guestAuth.currentUser;}
 export async function login(){try{await auth.authStateReady();if(!auth.currentUser){const provider=new GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});await signInWithPopup(auth,provider);}const u=await teacher();window.teacherUid=u.uid;window.dispatchEvent(new Event('teacher-identity-changed'));return true;}catch(e){alert(e.message);return false;}}
-export async function logout(){reset();await signOut(auth);sessionStorage.removeItem('millionaireTeacher');location.assign('./game.html');}
+export async function logout(){reset();await Promise.all([signOut(auth),buyerLogout()]);sessionStorage.removeItem('millionaireTeacher');location.assign('./game.html');}
 function connectionEvent(state,code=''){
  if(typeof window==='undefined'||typeof CustomEvent==='undefined')return;
  window.dispatchEvent(new CustomEvent('spark-connection',{detail:{state,code,at:Date.now()}}));
@@ -74,7 +75,7 @@ const publicQuestion=q=>q?{text:q.text,options:q.options,...timing(q)}:null;
 const answerKey=q=>({correct:q.correct,...timing(q)});
 async function roomData(pin,teacherMode){
  const conn=teacherMode?db:studentDb;
- if(teacherMode){await auth.authStateReady();if(!auth.currentUser)throw Error('Cần đăng nhập Google.');}else await student();
+ if(teacherMode)await teacher();else await student();
  const entry=await watch((teacherMode?'teacher:':'student:')+pin,doc(conn,'liveRooms',pin));
  if(entry.error)throw entry.error;if(!entry.value)throw Error('Không tìm thấy phòng.');return {...entry.value,_connection:entry.fromCache?'cache':'connected'};
 }

@@ -16,6 +16,8 @@ export function encode(value){return btoa(String.fromCharCode(...new TextEncoder
 export function decode(s){if(s.length>12000)throw Error('Link cấu hình quá dài.');s=s.replaceAll('-','+').replaceAll('_','/');return validate(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(s),x=>x.charCodeAt(0)))));}
 export function getConnection(){
  const h=new URLSearchParams(location.hash.slice(1));if(h.has('cfg'))return decode(h.get('cfg'));
+ const params=new URLSearchParams(location.search);
+ if(params.has('homework')&&params.has('cfg'))return decode(params.get('cfg'));
  const value=localStorage.getItem(KEY);return value?validate(JSON.parse(value)):null;
 }
 export function saveConnection(value){localStorage.setItem(KEY,JSON.stringify(validate(value)));}

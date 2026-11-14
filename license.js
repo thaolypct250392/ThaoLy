@@ -12,7 +12,7 @@ function homeworkShareLink(id){
 const connectionReady=import('./connection.mjs');
 window.teacherUid='';
 const formulaReady=import('./formula-core.mjs?v=30.5.race').then(m=>{window.renderFormulaText=value=>m.renderRichText(value,{game:true});window.plainFormulaText=m.plainRichText;});
-const firebaseReady=import('./spark-backend.mjs?v=30.5.homework-replay.10');
+const firebaseReady=import('./spark-backend.mjs?v=30.5.replay-gmail.11');
 firebaseReady.catch(()=>{});
 async function googleTeacherSignIn(){return (await firebaseReady).login();}
 async function googleTeacherSignOut(){return (await firebaseReady).logout();}
