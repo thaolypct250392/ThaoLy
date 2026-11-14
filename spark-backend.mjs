@@ -87,7 +87,7 @@ async function answers(pin,index){
 function renderState(r,pin,players,answerList,studentUid){
  const a=Object.fromEntries(answerList.map(x=>[x.studentUid,x.answer]));
  return {connection:r._connection||'connected',pin,mode:r.mode||'sync',phase:r.phase,index:r.index,total:15,levels,phaseStartedAt:millis(r.phaseStartedAt)||null,timeLimitMs:(r.question?.seconds??30)*1000,serverNow:Date.now(),questionSet:'custom',questionPreview:r.question?.text||'',question:r.question,correct:r.phase==='revealed'?r.correct:null,
-  players:players.map(p=>({...p,answered:Object.hasOwn(a,p.id),correctNow:r.phase==='revealed'?(p.correctNow??(Object.hasOwn(a,p.id)?a[p.id]===r.correct:null)):null})).sort((x,y)=>y.level-x.level||y.score-x.score||x.name.localeCompare(y.name,'vi')),
+  players:players.map(p=>({...p,answered:Object.hasOwn(a,p.id)||(r.phase==='revealed'&&p.answeredIndex===r.index),correctNow:r.phase==='revealed'?(p.correctNow??(Object.hasOwn(a,p.id)?a[p.id]===r.correct:null)):null})).sort((x,y)=>y.level-x.level||y.score-x.score||x.name.localeCompare(y.name,'vi')),
   myAnswer:Object.hasOwn(a,studentUid)?a[studentUid]:null,answersCount:answerList.length,closed:r.phase==='finished'};
 }
 function initialPlayer(player){
@@ -366,7 +366,7 @@ export async function api(action,body={}){
    // Concurrent accepted submissions cause retries instead of disappearing from scoring.
    const submitted=await Promise.all(r.players.map(p=>tx.get(doc(db,'liveRooms',pin,'answers',p.id+'_'+r.index))));
    const answerMap=new Map(submitted.filter(d=>d.exists()).map(d=>[d.data().studentUid,d.data()]));
-   const players=r.players.map(p=>{const a=answerMap.get(p.id);if(!a||a.answer!==q[r.index].correct)return {...p,correctNow:false};const elapsed=Math.max(0,millis(a.submittedAt)-millis(r.phaseStartedAt));if(elapsed>=(r.question?.seconds??30)*1000)return {...p,correctNow:false};const bonus=Math.max(0,500-Math.floor(elapsed/1000)*25);return {...p,correctNow:true,level:p.level+1,score:p.score+1000+bonus,speedPoints:p.speedPoints+bonus};});
+   const players=r.players.map(previous=>{const a=answerMap.get(previous.id);const p={...previous,answeredIndex:a?r.index:null};if(!a||a.answer!==q[r.index].correct)return {...p,correctNow:false};const elapsed=Math.max(0,millis(a.submittedAt)-millis(r.phaseStartedAt));if(elapsed>=(r.question?.seconds??30)*1000)return {...p,correctNow:false};const bonus=Math.max(0,500-Math.floor(elapsed/1000)*25);return {...p,correctNow:true,level:p.level+1,score:p.score+1000+bonus,speedPoints:p.speedPoints+bonus};});
    tx.update(ref,{phase:'revealed',correct:q[r.index].correct,players});
   }else if(action==='next'){
    if(r.phase!=='revealed')throw Error('Cần công bố đáp án trước.');const index=r.index+1;tx.update(ref,{index,phase:index===15?'finished':'question',question:publicQuestion(q[index]),correct:null,phaseStartedAt:serverTimestamp()});

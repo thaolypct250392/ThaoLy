@@ -2,7 +2,7 @@ function shareConnectionLink(url){const u=new URL(url,location.origin);const h=n
 const connectionReady=import('./connection.mjs');
 window.teacherUid='';
 const formulaReady=import('./formula-core.mjs?v=30.5.race').then(m=>{window.renderFormulaText=value=>m.renderRichText(value,{game:true});window.plainFormulaText=m.plainRichText;});
-const firebaseReady=import('./spark-backend.mjs?v=30.5.homework.1');
+const firebaseReady=import('./spark-backend.mjs?v=30.5.audio-report.2');
 firebaseReady.catch(()=>{});
 async function googleTeacherSignIn(){return (await firebaseReady).login();}
 async function googleTeacherSignOut(){return (await firebaseReady).logout();}
