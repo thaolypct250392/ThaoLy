@@ -9,6 +9,7 @@ service cloud.firestore {
     function room(pin) {return get(/databases/$(database)/documents/liveRooms/$(pin)).data;}
     function ownRoom(r) {return teacher(r.teacherUid) && request.auth.token.email == r.teacherEmail;}
     function member(pin) {return guest() && exists(/databases/$(database)/documents/liveRooms/$(pin)/players/$(request.auth.uid));}
+    function homeworkBank(bankId) {return get(/databases/$(database)/documents/soloBanks/$(bankId)).data.get('homework',false) == true;}
     function soloAvailable(bankId) {return !exists(/databases/$(database)/documents/soloLocks/$(bankId)) || get(/databases/$(database)/documents/soloLocks/$(bankId)).data.activeRooms.size() == 0;}
     match /soloLocks/{bankId} {
       allow get: if teacher(get(/databases/$(database)/documents/soloBanks/$(bankId)).data.teacherUid) || (guest() && allowed(get(/databases/$(database)/documents/soloBanks/$(bankId)).data.teacherEmail));
@@ -47,9 +48,25 @@ service cloud.firestore {
         && (!raceBank(bankId) || (member(bankId) && room(bankId).phase == 'question')));
       allow list: if false;
       allow create: if teacher(request.resource.data.teacherUid) && request.resource.data.teacherEmail == request.auth.token.email
-        && request.resource.data.keys().hasOnly(['teacherUid','teacherEmail','questions']);
+        && request.resource.data.keys().hasOnly(['teacherUid','teacherEmail','questions','homework','name'])
+        && (!request.resource.data.keys().hasAny(['homework','name']) || (request.resource.data.homework == true && request.resource.data.name is string && request.resource.data.name.size() <= 110));
       allow update: if bankOwner() && request.resource.data == resource.data;
       allow delete: if false;
+      match /ranking/{studentUid} {
+        function finished(uid) {
+          return get(/databases/$(database)/documents/soloAttempts/$(bankId + '_home_' + uid)).data;
+        }
+        allow get,list: if guest() && homeworkBank(bankId)
+          && finished(request.auth.uid).status == 'finished' && allowed(finished(request.auth.uid).teacherEmail);
+        function validResult() {
+          let a = getAfter(/databases/$(database)/documents/soloAttempts/$(bankId + '_home_' + studentUid)).data;
+          return a.status == 'finished' && allowed(a.teacherEmail)
+            && request.resource.data.keys().hasOnly(['level','score'])
+            && request.resource.data.level == a.level && request.resource.data.score == a.score;
+        }
+        allow create: if guest() && request.auth.uid == studentUid && homeworkBank(bankId) && validResult();
+        allow update,delete: if false;
+      }
       match /keys/{index} {
         allow create: if bankTeacher() && request.resource.data.keys().hasOnly(['correct','seconds']) && validSeconds(request.resource.data) && request.resource.data.correct is int && request.resource.data.correct >= 0 && request.resource.data.correct <= 3;
         allow update: if bankTeacher() && request.resource.data == resource.data;
@@ -102,7 +119,9 @@ service cloud.firestore {
           && b.status == (a.index == 14 ? 'finished' : 'answered')
           && b.level == a.level + (right ? 1 : 0)
           && b.score == a.score + (right ? 1000+bonus : 0)
-          && b.speedPoints == a.speedPoints + (right ? bonus : 0);
+          && b.speedPoints == a.speedPoints + (right ? bonus : 0)
+          && (a.index != 14 || attemptId != a.bankId + '_home_' + a.studentUid
+            || existsAfter(/databases/$(database)/documents/soloBanks/$(a.bankId)/ranking/$(a.studentUid)));
       }
       function initialAttempt() {return request.resource.data.keys().hasOnly(['studentUid','teacherUid','teacherEmail','bankId','name','gender','className','created','index','currentStartedAt','level','score','speedPoints','status'])
         && get(/databases/$(database)/documents/soloBanks/$(request.resource.data.bankId)).data.teacherUid == request.resource.data.teacherUid
@@ -112,12 +131,15 @@ service cloud.firestore {
         && request.resource.data.index == 0 && request.resource.data.currentStartedAt == null
         && request.resource.data.level == 0 && request.resource.data.score == 0 && request.resource.data.speedPoints == 0 && request.resource.data.status == 'intro';}
       allow create: if initialAttempt() && (
-        (ownAttempt(request.resource.data) && soloAvailable(request.resource.data.bankId) && !raceBank(request.resource.data.bankId))
+        (ownAttempt(request.resource.data) && soloAvailable(request.resource.data.bankId) && !raceBank(request.resource.data.bankId)
+          && (!homeworkBank(request.resource.data.bankId) || attemptId == request.resource.data.bankId + '_home_' + request.auth.uid))
         || (attemptTeacher(request.resource.data) && raceBank(request.resource.data.bankId)
           && room(request.resource.data.bankId).phase == 'preparing'
           && attemptId == request.resource.data.bankId + '_' + request.resource.data.studentUid)
       );
-      allow get,list: if ownAttempt(resource.data) || attemptTeacher(resource.data);
+      allow get: if (guest() && attemptId.matches('^[a-zA-Z0-9_-]+_home_' + request.auth.uid + '$'))
+        || ownAttempt(resource.data) || attemptTeacher(resource.data);
+      allow list: if ownAttempt(resource.data) || attemptTeacher(resource.data);
       allow update: if ownAttempt(resource.data) && attemptPlayable(resource.data, attemptId) && stable(resource.data,request.resource.data)
         && ((resource.data.status == 'intro' && request.resource.data.status == 'playing'
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','currentStartedAt']) && request.resource.data.currentStartedAt == request.time)

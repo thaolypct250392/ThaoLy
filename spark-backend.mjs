@@ -110,7 +110,7 @@ export async function api(action,body={}){
   const ref=doc(db,'sparkAccess',email),old=(await getDoc(ref)).data();
   await setDoc(ref,{email,label:clean(body.label||old?.label||email,100),enabled:action==='admin-grant'?true:!body.locked,updatedAt:serverTimestamp()});return {ok:true};
  }
- const teacherActions=['teacher-link','bank-info','read-bank','list-banks','publish-bank','activate-bank','create','my-rooms','my-solo-results','questions','start','reveal','next','end-room','prepare-solo'];
+ const teacherActions=['create-homework','teacher-link','bank-info','read-bank','list-banks','publish-bank','activate-bank','create','my-rooms','my-solo-results','questions','start','reveal','next','end-room','prepare-solo'];
  const u=teacherActions.includes(action)?await teacher():null;
  if(action==='teacher-link')return {tenant:u.uid,email:u.email};
  if(action==='bank-info'){const q=(await getDoc(doc(db,'sparkTeachers',u.uid,'settings','active'))).data()?.questions;return {count:q?.length||0,preview:q?.[0]?.text||'Chưa lưu bộ đề',custom:!!q};}
@@ -127,6 +127,16 @@ export async function api(action,body={}){
   for(let i=0;i<15;i++)batch.set(doc(db,'soloBanks',archiveId,'keys',String(i)),answerKey(questions[i]));
   batch.set(doc(db,'soloLinks',u.uid),{teacherUid:u.uid,teacherEmail:u.email,archiveId});
   await batch.commit();return {ok:true,name,count:15,preview:questions[0].text};
+ }
+ if(action==='create-homework'){
+  const settings=(await getDoc(doc(db,'sparkTeachers',u.uid,'settings','active'))).data();
+  if(!settings?.questions)throw Error('Cô hãy lưu hoặc chọn bộ đề trước.');
+  const questions=validate(settings.questions),id=crypto.randomUUID(),batch=writeBatch(db);
+  const name=clean(body.name,110)||'Bài tập về nhà';
+  batch.set(doc(db,'soloBanks',id),{teacherUid:u.uid,teacherEmail:u.email,questions:questions.map(publicQuestion),homework:true,name});
+  for(let i=0;i<questions.length;i++)batch.set(doc(db,'soloBanks',id,'keys',String(i)),answerKey(questions[i]));
+  batch.set(doc(db,'sparkTeachers',u.uid,'homework',id),{id,name,created:serverTimestamp()});
+  await batch.commit();return {id,name};
  }
  if(action==='create'){
   const settings=(await getDoc(doc(db,'sparkTeachers',u.uid,'settings','active'))).data();if(!settings?.questions)throw Error('Cô hãy tải và lưu bộ đề trước khi tạo phòng.');
@@ -146,8 +156,9 @@ export async function api(action,body={}){
   return {rooms:snaps.docs.map(d=>({pin:d.id,phase:d.data().phase,created:millis(d.data().created),players:d.data().players})).sort((a,b)=>b.created-a.created)};
  }
  if(action==='my-solo-results'){
-  const snaps=await getDocs(query(collection(db,'soloAttempts'),where('teacherUid','==',u.uid),where('teacherEmail','==',u.email),orderBy('created','desc'),limit(100)));
-  return {attempts:snaps.docs.map(d=>({id:d.id,...d.data(),created:millis(d.data().created)})).filter(a=>a.id!==a.bankId+'_'+a.studentUid).sort((a,b)=>b.created-a.created)};
+  const snaps=await getDocs(query(collection(db,'soloAttempts'),where('teacherUid','==',u.uid),where('teacherEmail','==',u.email),orderBy('created','desc')));
+  const homework=(await getDocs(collection(db,'sparkTeachers',u.uid,'homework'))).docs.map(d=>({...d.data(),created:millis(d.data().created)}));
+  return {homework,attempts:snaps.docs.map(d=>({id:d.id,...d.data(),created:millis(d.data().created)})).filter(a=>a.id!==a.bankId+'_'+a.studentUid).sort((a,b)=>b.created-a.created)};
  }
  if(action==='prepare-solo'){
   const settings=(await getDoc(doc(db,'sparkTeachers',u.uid,'settings','active'))).data();
@@ -174,15 +185,28 @@ export async function api(action,body={}){
  }
  if(action==='solo-questions'){
   const s=await student(),name=clean(body.name),gender=body.gender==='female'?'female':'male',className=clean(body.className,40);if(name.length<2)throw Error('Em hãy nhập tên trước khi bắt đầu.');
-  const link=(await getDoc(doc(studentDb,'soloLinks',pathId(body.tenant)))).data();if(!link)throw Error('Giáo viên cần lưu hoặc chọn bộ đề trước khi chia sẻ link cá nhân.');
+  const homeworkId=body.homework?pathId(body.homework):null;
+  const link=homeworkId?{archiveId:homeworkId}:(await getDoc(doc(studentDb,'soloLinks',pathId(body.tenant)))).data();
+  if(!link)throw Error('Giáo viên cần lưu hoặc chọn bộ đề trước khi chia sẻ link cá nhân.');
   const published=(await getDoc(doc(studentDb,'soloBanks',link.archiveId))).data();
+  if(!published||Boolean(published.homework)!==Boolean(homeworkId))throw Error('Không tìm thấy bộ đề theo link này.');
   const lock=(await getDoc(doc(studentDb,'soloLocks',link.archiveId))).data();
   if(lock?.activeRooms?.length)throw Error('Bộ đề còn '+lock.activeRooms.length+' phòng chưa được gỡ khóa. Giáo viên vào kho đề, bấm MỞ CHẾ ĐỘ CÁ NHÂN để kiểm tra và kết thúc các phòng còn lại.');
-  const attemptId=crypto.randomUUID();
-  await setDoc(doc(studentDb,'soloAttempts',attemptId),{studentUid:s.uid,teacherUid:link.teacherUid,teacherEmail:link.teacherEmail,bankId:link.archiveId,name,gender,...(className?{className}:{}),created:serverTimestamp(),index:0,currentStartedAt:null,level:0,score:0,speedPoints:0,status:'intro'});
+  const attemptId=homeworkId?homeworkId+'_home_'+s.uid:crypto.randomUUID(),ref=doc(studentDb,'soloAttempts',attemptId);
+  const initial={studentUid:s.uid,teacherUid:published.teacherUid,teacherEmail:published.teacherEmail,bankId:link.archiveId,name,gender,...(className?{className}:{}),created:serverTimestamp(),index:0,currentStartedAt:null,level:0,score:0,speedPoints:0,status:'intro'};
+  let progress;
+  if(homeworkId){
+   progress=await runTransaction(studentDb,async tx=>{
+    const prior=(await tx.get(ref)).data();
+    if(prior)return prior;
+    tx.set(ref,initial);return initial;
+   });
+  }else{await setDoc(ref,initial);progress=initial;}
+  const {status,index,level,score,speedPoints}=progress;
+  const current=status==='answered'?index+1:index;
   window.sparkSoloAttempt=attemptId;window.sparkSoloBank=link.archiveId;
   sessionStorage.setItem('spark-solo-attempt',attemptId);
-  return {questions:published.questions,levels,attemptId};
+  return {questions:published.questions,levels,attemptId,name:progress.name,gender:progress.gender,status,index:current,level,score,speedPoints,homework:homeworkId,title:published.name||''};
  }
  if(action==='solo-open'){
   await student();const attemptId=pathId(body.attemptId||window.sparkSoloAttempt),ref=doc(studentDb,'soloAttempts',attemptId);
@@ -192,7 +216,7 @@ export async function api(action,body={}){
    if(a.status==='intro'&&body.index===0)tx.update(ref,{status:'playing',currentStartedAt:serverTimestamp()});
    else if(a.status==='answered'&&body.index===a.index+1)tx.update(ref,{status:'playing',index:a.index+1,currentStartedAt:serverTimestamp()});
    else throw Error('Lượt chơi không ở câu hỏi này.');
-  });return {ok:true,started:millis((await getDoc(ref)).data().currentStartedAt)};
+  });const opened=(await getDoc(ref)).data();return {ok:true,started:millis(opened.currentStartedAt),serverNow:Date.now()};
  }
  if(action==='solo-answer'){
   const s=await student(),attemptId=pathId(body.attemptId||window.sparkSoloAttempt),ref=doc(studentDb,'soloAttempts',attemptId),attempt=(await getDoc(ref)).data(),archiveId=pathId(attempt.bankId),index=Number(body.index);
@@ -211,10 +235,20 @@ export async function api(action,body={}){
    }
    const choice=(await tx.get(answerRef)).data(),key=(await tx.get(keyRef)).data(),elapsed=millis(choice.submittedAt)-millis(a.currentStartedAt),right=choice.answer===key.correct&&elapsed>=0&&elapsed<(key.seconds??30)*1000;
    const bonus=Math.max(0,Math.min(500,500-Math.floor(elapsed/1000)*25));
-   tx.update(ref,{status:index===14?'finished':'answered',level:a.level+(right?1:0),score:a.score+(right?1000+bonus:0),speedPoints:a.speedPoints+(right?bonus:0)});
+   const level=a.level+(right?1:0),score=a.score+(right?1000+bonus:0);
+   tx.update(ref,{status:index===14?'finished':'answered',level,score,speedPoints:a.speedPoints+(right?bonus:0)});
+   if(index===14&&attemptId===archiveId+'_home_'+s.uid)
+    tx.set(doc(studentDb,'soloBanks',archiveId,'ranking',s.uid),{level,score});
   });
   const result=(await getDoc(ref)).data(),choice=(await getDoc(answerRef)).data(),key=(await getDoc(keyRef)).data();
   return {correct:key.correct,timeLimitMs:(key.seconds??30)*1000,answer:choice.answer,level:result.level,score:result.score,speedPoints:result.speedPoints,elapsed:millis(choice.submittedAt)-millis(result.currentStartedAt)};
+ }
+ if(action==='homework-ranking'){
+  const s=await student(),id=pathId(body.homework),attemptId=id+'_home_'+s.uid;
+  const attempt=(await getDoc(doc(studentDb,'soloAttempts',attemptId))).data();
+  if(attempt?.status!=='finished')throw Error('Em cần hoàn thành bài để xem xếp hạng.');
+  const entries=await getDocs(collection(studentDb,'soloBanks',id,'ranking'));
+  return {players:entries.docs.map(row=>({mine:row.id===s.uid,level:row.data().level,score:row.data().score})).sort((a,b)=>b.level-a.level||b.score-a.score)};
  }
  if(action==='solo-history'){
   const s=await student(),tenant=pathId(body.tenant),link=(await getDoc(doc(studentDb,'soloLinks',tenant))).data();
