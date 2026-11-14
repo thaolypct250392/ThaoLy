@@ -51,6 +51,7 @@ function renderReview(questions) {
       <div class="review-heading"><strong>Câu ${i+1}</strong>${q.warning ? `<span class="review-warning">⚠ ${escapeHtml(q.warning)}</span>` : ''}</div>
       <label class="label">Nội dung câu hỏi</label><div class="review-text formula-editor" contenteditable="true" role="textbox" aria-label="Nội dung câu ${i+1}">${renderRichText(q.text)}</div>
       <div class="review-options">${letters.map((letter,j) => `<label>${letter}. <div class="review-option formula-editor" contenteditable="true" role="textbox" aria-label="Lựa chọn ${letter} câu ${i+1}" data-choice="${j}">${renderRichText(q.options[j])}</div></label>`).join('')}</div>
+      <label class="label" for="review-seconds-${i}">Thời gian trả lời (giây)</label><input class="review-seconds" id="review-seconds-${i}" type="number" min="5" max="300" step="1" value="${Number.isInteger(q.seconds)?q.seconds:30}" style="width:9rem">
       <label class="label">Đáp án đúng (bắt buộc kiểm tra)</label>
       <select class="review-correct" ${q.correct<0?'style="border-color:#ffbd66"':''}><option value="-1">— Chọn đáp án —</option>${letters.map((letter,j)=>`<option value="${j}" ${q.correct===j?'selected':''}>${letter}</option>`).join('')}</select>${q.needsReview?'<label class="small"><input type="checkbox" class="review-confirm"> Tôi đã kiểm tra nội dung và công thức được cảnh báo ở câu này.</label>':''}
     </section>`).join('');
@@ -72,7 +73,9 @@ function collectReview() {
     const correct = Number(card.querySelector('.review-correct').value);
     const confirm=card.querySelector('.review-confirm');if(confirm&&!confirm.checked)throw Error(`Câu ${i+1}: cô cần kiểm tra cảnh báo và đánh dấu xác nhận.`);
     if (!text || options.some(x=>!x) || correct < 0) throw Error(`Câu ${i+1}: cần đủ nội dung, 4 phương án và đáp án đúng.`);
-    return {text, options, correct};
+    const seconds=Number(card.querySelector(".review-seconds").value);
+    if(!Number.isInteger(seconds)||seconds<5||seconds>300)throw Error(`Câu ${i+1}: nhập thời gian nguyên từ 5 đến 300 giây.`);
+    return {text, options, correct, seconds};
   });
 }
 
@@ -120,17 +123,20 @@ $('question-file').addEventListener('change', async event => {
     else if (ext === 'json') {
       const input = JSON.parse(await file.text());
       if (!Array.isArray(input)) throw Error('JSON cần là danh sách câu hỏi.');
-      questions = input.map(q=>({text:q.text??q.question??'', options:q.options??[], correct:normalizedAnswer(q.correct??q.answer),warning:''}));
+      questions = input.map(q=>({text:q.text??q.question??'', options:q.options??[], correct:normalizedAnswer(q.correct??q.answer),seconds:q.seconds,warning:''}));
     } else throw Error('Cô vui lòng chọn .docx, .pdf, .txt hoặc .json.');
     renderReview(questions);
     if (questions.length!==15) notify(`⚠ File chỉ đọc được ${questions.length}/15 câu. Cô kiểm tra lại cách ghi “Câu 1…” trong Word/PDF.`,true);
-    else if (questions.every(q=>q.text && q.options.every(Boolean) && q.correct>=0 && !q.needsReview) && !questions.some(q=>[q.text,...q.options].some(t=>/\[\[(?:IMG|PIC):/.test(t))||q.text.includes('[[MATH:')||q.options.some(x=>x.includes('[[MATH:'))||[q.text,...q.options].some(t=>/\$|\\[([]/.test(t)))) {
-      notify('✅ Đã đọc đủ 15 câu có đáp án. Đang tự động cập nhật bộ đề chung…');
-      await saveReview();
-    } else notify('Đã đọc 15 câu. Cô xem công thức trong bảng kiểm tra, chọn đáp án ở những câu chưa chắc chắn rồi bấm LƯU 15 CÂU CHO CẢ HAI CHẾ ĐỘ.');
+    else notify('Đã đọc 15 câu. Cô xem công thức trong bảng kiểm tra, chọn đáp án ở những câu chưa chắc chắn rồi bấm LƯU 15 CÂU CHO CẢ HAI CHẾ ĐỘ.');
   } catch (e) { notify('⚠ ' + e.message,true); }
 });
 
 $('review-save').addEventListener('click',saveReview);
 $('review-save-bottom').addEventListener('click',saveReview);
 notify('✅ Bộ đọc câu hỏi đã sẵn sàng. Cô chọn file Word hoặc PDF để nhập 15 câu.');
+
+window.editSavedQuestions = ({questions, name}) => {
+  uploadedName = name;
+  renderReview(questions);
+  $('review-list').querySelector('.review-card')?.scrollIntoView({block:'start'});
+};

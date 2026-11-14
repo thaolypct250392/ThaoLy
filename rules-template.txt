@@ -51,7 +51,7 @@ service cloud.firestore {
       allow update: if bankOwner() && request.resource.data == resource.data;
       allow delete: if false;
       match /keys/{index} {
-        allow create: if bankTeacher() && request.resource.data.keys().hasOnly(['correct']) && request.resource.data.correct is int && request.resource.data.correct >= 0 && request.resource.data.correct <= 3;
+        allow create: if bankTeacher() && request.resource.data.keys().hasOnly(['correct','seconds']) && validSeconds(request.resource.data) && request.resource.data.correct is int && request.resource.data.correct >= 0 && request.resource.data.correct <= 3;
         allow update: if bankTeacher() && request.resource.data == resource.data;
         allow get: if bankTeacher() || (guest() && soloAvailable(bankId)
           && exists(/databases/$(database)/documents/soloBanks/$(bankId)/unlocks/$(request.auth.uid + '_' + index))
@@ -81,6 +81,12 @@ service cloud.firestore {
         ? raceBank(a.bankId) && room(a.bankId).phase == 'question' && member(a.bankId)
         : !raceBank(a.bankId));
     }
+    function validSeconds(data) {
+      return data.get('seconds',30) is int && data.get('seconds',30) >= 5 && data.get('seconds',30) <= 300;
+    }
+    function validClass(data) {
+      return data.get('className','') is string && data.get('className','').size() <= 40;
+    }
     match /soloAttempts/{attemptId} {
       function ownAttempt(a) {return guest() && request.auth.uid == a.studentUid && allowed(a.teacherEmail);}
       function attemptTeacher(a) {return teacher(a.teacherUid) && request.auth.token.email == a.teacherEmail;}
@@ -89,7 +95,7 @@ service cloud.firestore {
         let choice=get(/databases/$(database)/documents/soloAttempts/$(attemptId)/answers/$(string(a.index))).data;
         let key=get(/databases/$(database)/documents/soloBanks/$(a.bankId)/keys/$(string(a.index))).data;
         let elapsed=choice.submittedAt - a.currentStartedAt;
-        let right=choice.answer == key.correct && elapsed >= duration.value(0,'s') && elapsed < duration.value(30,'s');
+        let right=choice.answer == key.correct && elapsed >= duration.value(0,'s') && elapsed < duration.value(key.get('seconds',30),'s');
         let rawBonus=500-elapsed.seconds()*25;
         let bonus=rawBonus < 0 ? 0 : (rawBonus > 500 ? 500 : rawBonus);
         return b.diff(a).affectedKeys().hasOnly(['level','score','speedPoints','status'])
@@ -98,11 +104,11 @@ service cloud.firestore {
           && b.score == a.score + (right ? 1000+bonus : 0)
           && b.speedPoints == a.speedPoints + (right ? bonus : 0);
       }
-      function initialAttempt() {return request.resource.data.keys().hasOnly(['studentUid','teacherUid','teacherEmail','bankId','name','gender','created','index','currentStartedAt','level','score','speedPoints','status'])
+      function initialAttempt() {return request.resource.data.keys().hasOnly(['studentUid','teacherUid','teacherEmail','bankId','name','gender','className','created','index','currentStartedAt','level','score','speedPoints','status'])
         && get(/databases/$(database)/documents/soloBanks/$(request.resource.data.bankId)).data.teacherUid == request.resource.data.teacherUid
         && get(/databases/$(database)/documents/soloBanks/$(request.resource.data.bankId)).data.teacherEmail == request.resource.data.teacherEmail
         && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80
-        && request.resource.data.gender in ['male','female'] && request.resource.data.created == request.time
+        && validClass(request.resource.data) && request.resource.data.gender in ['male','female'] && request.resource.data.created == request.time
         && request.resource.data.index == 0 && request.resource.data.currentStartedAt == null
         && request.resource.data.level == 0 && request.resource.data.score == 0 && request.resource.data.speedPoints == 0 && request.resource.data.status == 'intro';}
       allow create: if initialAttempt() && (
@@ -136,7 +142,7 @@ service cloud.firestore {
           && r.phase in ['lobby','preparing','question','revealed','finished'] && r.index is int && r.index >= 0 && r.index <= 15
           && r.players is list && r.players.size() <= 100
           && ((r.phase == 'revealed' && r.correct is int && r.correct >= 0 && r.correct <= 3) || (r.phase != 'revealed' && r.correct == null))
-          && (r.question == null || (r.question is map && r.question.keys().hasOnly(['text','options']) && r.question.text is string && r.question.options is list && r.question.options.size() == 4));
+          && (r.question == null || (r.question is map && r.question.keys().hasOnly(['text','options','seconds']) && validSeconds(r.question) && r.question.text is string && r.question.options is list && r.question.options.size() == 4));
       }
       allow create: if ownRoom(request.resource.data) && validPublic(request.resource.data)
         && request.resource.data.phase == 'lobby' && request.resource.data.index == 0
@@ -152,10 +158,10 @@ service cloud.firestore {
       allow list: if ownRoom(resource.data);
       match /players/{studentUid} {
         allow create: if guest() && request.auth.uid == studentUid && room(pin).phase == 'lobby' && allowed(room(pin).teacherEmail)
-          && request.resource.data.keys().hasOnly(['id','name','gender','avatar','joinedAt'])
+          && request.resource.data.keys().hasOnly(['id','name','gender','className','avatar','joinedAt'])
           && request.resource.data.id == studentUid && request.resource.data.name is string
           && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80
-          && request.resource.data.gender in ['male','female'] && request.resource.data.avatar is int
+          && validClass(request.resource.data) && request.resource.data.gender in ['male','female'] && request.resource.data.avatar is int
           && request.resource.data.avatar >= 0 && request.resource.data.avatar <= 7
           && request.resource.data.joinedAt == request.time;
         allow get: if ownRoom(room(pin)) || (guest() && request.auth.uid == studentUid && allowed(room(pin).teacherEmail));
@@ -169,7 +175,7 @@ service cloud.firestore {
           && request.resource.data.index == room(pin).index
           && answerId == request.auth.uid + '_' + string(room(pin).index)
           && room(pin).phase == 'question' && room(pin).get('mode','sync') == 'sync'
-          && request.time < room(pin).phaseStartedAt + duration.value(30,'s')
+          && request.time < room(pin).phaseStartedAt + duration.value(room(pin).question.get('seconds',30),'s')
           && request.resource.data.answer is int && request.resource.data.answer >= 0 && request.resource.data.answer <= 3
           && request.resource.data.submittedAt == request.time;
         allow get: if ownRoom(room(pin)) || (member(pin) && answerId == request.auth.uid + '_' + string(room(pin).index) && allowed(room(pin).teacherEmail));

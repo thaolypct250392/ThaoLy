@@ -66,10 +66,12 @@ async function bank(uid){const snap=await getDoc(doc(db,'sparkTeachers',uid,'set
 function validate(raw){
  if(!Array.isArray(raw)||raw.length!==15)throw Error('Cần đúng 15 câu hỏi.');
  const field=(value,max,i)=>{if(typeof value!=='string'||!value.trim())throw Error('Câu '+(i+1)+' có nội dung trống.');if(value.length>max)throw Error('Câu '+(i+1)+' có ảnh/công thức quá dài; chưa lưu để tránh mất nội dung.');return value.trim();};
- const result=raw.map((q,i)=>{if(!q||!Array.isArray(q.options)||q.options.length!==4||!Number.isInteger(q.correct)||q.correct<0||q.correct>3)throw Error('Câu '+(i+1)+' chưa chọn đáp án hợp lệ.');return {text:field(q.text,220000,i),options:q.options.map(x=>field(x,220000,i)),correct:q.correct};});
+ const result=raw.map((q,i)=>{if(!q||!Array.isArray(q.options)||q.options.length!==4||!Number.isInteger(q.correct)||q.correct<0||q.correct>3)throw Error('Câu '+(i+1)+' chưa chọn đáp án hợp lệ.');const seconds=q.seconds??30;if(!Number.isInteger(seconds)||seconds<5||seconds>300)throw Error('Câu '+(i+1)+': thời gian phải là số nguyên từ 5 đến 300 giây.');return {text:field(q.text,220000,i),options:q.options.map(x=>field(x,220000,i)),correct:q.correct,...timing({seconds})};});
  if(new TextEncoder().encode(JSON.stringify(result)).length>750000)throw Error('Bộ đề chứa quá nhiều dữ liệu ảnh/công thức; chưa lưu để tránh vượt giới hạn.');return result;
 }
-const publicQuestion=q=>q?{text:q.text,options:q.options}:null;
+const timing=q=>q?.seconds!=null&&q.seconds!==30?{seconds:q.seconds}:{};
+const publicQuestion=q=>q?{text:q.text,options:q.options,...timing(q)}:null;
+const answerKey=q=>({correct:q.correct,...timing(q)});
 async function roomData(pin,teacherMode){
  const conn=teacherMode?db:studentDb;
  if(teacherMode){await auth.authStateReady();if(!auth.currentUser)throw Error('Cần đăng nhập Google.');}else await student();
@@ -84,13 +86,14 @@ async function answers(pin,index){
 }
 function renderState(r,pin,players,answerList,studentUid){
  const a=Object.fromEntries(answerList.map(x=>[x.studentUid,x.answer]));
- return {connection:r._connection||'connected',pin,mode:r.mode||'sync',phase:r.phase,index:r.index,total:15,levels,phaseStartedAt:millis(r.phaseStartedAt)||null,timeLimitMs:30000,serverNow:Date.now(),questionSet:'custom',questionPreview:r.question?.text||'',question:r.question,correct:r.phase==='revealed'?r.correct:null,
+ return {connection:r._connection||'connected',pin,mode:r.mode||'sync',phase:r.phase,index:r.index,total:15,levels,phaseStartedAt:millis(r.phaseStartedAt)||null,timeLimitMs:(r.question?.seconds??30)*1000,serverNow:Date.now(),questionSet:'custom',questionPreview:r.question?.text||'',question:r.question,correct:r.phase==='revealed'?r.correct:null,
   players:players.map(p=>({...p,answered:Object.hasOwn(a,p.id),correctNow:r.phase==='revealed'?(p.correctNow??(Object.hasOwn(a,p.id)?a[p.id]===r.correct:null)):null})).sort((x,y)=>y.level-x.level||y.score-x.score||x.name.localeCompare(y.name,'vi')),
   myAnswer:Object.hasOwn(a,studentUid)?a[studentUid]:null,answersCount:answerList.length,closed:r.phase==='finished'};
 }
 function initialPlayer(player){
  const {id,name,gender,avatar}=player;
- return {id,name,gender,avatar,level:0,score:0,speedPoints:0};
+ const className=player.className||'';
+ return {id,name,gender,avatar,...(className?{className}:{}),level:0,score:0,speedPoints:0};
 }
 function mergeRaceProgress(player,attempt){
  if(!attempt)return player;
@@ -107,10 +110,11 @@ export async function api(action,body={}){
   const ref=doc(db,'sparkAccess',email),old=(await getDoc(ref)).data();
   await setDoc(ref,{email,label:clean(body.label||old?.label||email,100),enabled:action==='admin-grant'?true:!body.locked,updatedAt:serverTimestamp()});return {ok:true};
  }
- const teacherActions=['teacher-link','bank-info','list-banks','publish-bank','activate-bank','create','my-rooms','my-solo-results','questions','start','reveal','next','end-room','prepare-solo'];
+ const teacherActions=['teacher-link','bank-info','read-bank','list-banks','publish-bank','activate-bank','create','my-rooms','my-solo-results','questions','start','reveal','next','end-room','prepare-solo'];
  const u=teacherActions.includes(action)?await teacher():null;
  if(action==='teacher-link')return {tenant:u.uid,email:u.email};
  if(action==='bank-info'){const q=(await getDoc(doc(db,'sparkTeachers',u.uid,'settings','active'))).data()?.questions;return {count:q?.length||0,preview:q?.[0]?.text||'Chưa lưu bộ đề',custom:!!q};}
+ if(action==='read-bank'){const snap=await getDoc(doc(db,'sparkTeachers',u.uid,'banks',pathId(body.id)));if(!snap.exists())throw Error('Không tìm thấy bộ đề.');const {questions,name}=snap.data();return {questions,name};}
  if(action==='list-banks')return {banks:(await getDocs(query(collection(db,'sparkTeachers',u.uid,'banks'),orderBy('createdAt','desc')))).docs.map(d=>({id:d.id,name:d.data().name,createdAt:millis(d.data().createdAt),count:15}))};
  if(action==='publish-bank'||action==='activate-bank'){
   const archiveId=action==='publish-bank'?crypto.randomUUID():pathId(body.id),existing=action==='activate-bank'?(await getDoc(doc(db,'sparkTeachers',u.uid,'banks',archiveId))).data():null;
@@ -120,7 +124,7 @@ export async function api(action,body={}){
   batch.set(doc(db,'sparkTeachers',u.uid,'settings','active'),{questions,archiveId});
   // Solo publication uses immutable bank versions. Keys remain unreadable until a submitted choice.
   batch.set(doc(db,'soloBanks',archiveId),{teacherUid:u.uid,teacherEmail:u.email,questions:questions.map(publicQuestion)});
-  for(let i=0;i<15;i++)batch.set(doc(db,'soloBanks',archiveId,'keys',String(i)),{correct:questions[i].correct});
+  for(let i=0;i<15;i++)batch.set(doc(db,'soloBanks',archiveId,'keys',String(i)),answerKey(questions[i]));
   batch.set(doc(db,'soloLinks',u.uid),{teacherUid:u.uid,teacherEmail:u.email,archiveId});
   await batch.commit();return {ok:true,name,count:15,preview:questions[0].text};
  }
@@ -131,7 +135,7 @@ export async function api(action,body={}){
   const mode=body.mode==='race'?'race':'sync';
   if(mode==='race'){
    batch.set(doc(db,'soloBanks',pin),{teacherUid:u.uid,teacherEmail:u.email,questions:questions.map(publicQuestion)});
-   for(let i=0;i<15;i++)batch.set(doc(db,'soloBanks',pin,'keys',String(i)),{correct:questions[i].correct});
+   for(let i=0;i<15;i++)batch.set(doc(db,'soloBanks',pin,'keys',String(i)),answerKey(questions[i]));
   }
   batch.set(doc(db,'soloLocks',bankId),{teacherUid:u.uid,teacherEmail:u.email,activeRooms:arrayUnion(pin)},{merge:true});
   batch.set(doc(db,'liveRooms',pin),{teacherUid:u.uid,teacherEmail:u.email,...(mode==='race'?{mode}:{}),phase:'lobby',index:0,question:null,correct:null,players:[],phaseStartedAt:null,created:serverTimestamp()});
@@ -169,13 +173,13 @@ export async function api(action,body={}){
   });
  }
  if(action==='solo-questions'){
-  const s=await student(),name=clean(body.name),gender=body.gender==='female'?'female':'male';if(name.length<2)throw Error('Em hãy nhập tên trước khi bắt đầu.');
+  const s=await student(),name=clean(body.name),gender=body.gender==='female'?'female':'male',className=clean(body.className,40);if(name.length<2)throw Error('Em hãy nhập tên trước khi bắt đầu.');
   const link=(await getDoc(doc(studentDb,'soloLinks',pathId(body.tenant)))).data();if(!link)throw Error('Giáo viên cần lưu hoặc chọn bộ đề trước khi chia sẻ link cá nhân.');
   const published=(await getDoc(doc(studentDb,'soloBanks',link.archiveId))).data();
   const lock=(await getDoc(doc(studentDb,'soloLocks',link.archiveId))).data();
   if(lock?.activeRooms?.length)throw Error('Bộ đề còn '+lock.activeRooms.length+' phòng chưa được gỡ khóa. Giáo viên vào kho đề, bấm MỞ CHẾ ĐỘ CÁ NHÂN để kiểm tra và kết thúc các phòng còn lại.');
   const attemptId=crypto.randomUUID();
-  await setDoc(doc(studentDb,'soloAttempts',attemptId),{studentUid:s.uid,teacherUid:link.teacherUid,teacherEmail:link.teacherEmail,bankId:link.archiveId,name,gender,created:serverTimestamp(),index:0,currentStartedAt:null,level:0,score:0,speedPoints:0,status:'intro'});
+  await setDoc(doc(studentDb,'soloAttempts',attemptId),{studentUid:s.uid,teacherUid:link.teacherUid,teacherEmail:link.teacherEmail,bankId:link.archiveId,name,gender,...(className?{className}:{}),created:serverTimestamp(),index:0,currentStartedAt:null,level:0,score:0,speedPoints:0,status:'intro'});
   window.sparkSoloAttempt=attemptId;window.sparkSoloBank=link.archiveId;
   sessionStorage.setItem('spark-solo-attempt',attemptId);
   return {questions:published.questions,levels,attemptId};
@@ -205,12 +209,12 @@ export async function api(action,body={}){
     const room=(await tx.get(doc(studentDb,'liveRooms',a.bankId))).data();
     if(room?.mode!=='race'||room.phase!=='question')throw Error('Phòng thi đã kết thúc.');
    }
-   const choice=(await tx.get(answerRef)).data(),key=(await tx.get(keyRef)).data(),elapsed=millis(choice.submittedAt)-millis(a.currentStartedAt),right=choice.answer===key.correct&&elapsed>=0&&elapsed<30000;
+   const choice=(await tx.get(answerRef)).data(),key=(await tx.get(keyRef)).data(),elapsed=millis(choice.submittedAt)-millis(a.currentStartedAt),right=choice.answer===key.correct&&elapsed>=0&&elapsed<(key.seconds??30)*1000;
    const bonus=Math.max(0,Math.min(500,500-Math.floor(elapsed/1000)*25));
    tx.update(ref,{status:index===14?'finished':'answered',level:a.level+(right?1:0),score:a.score+(right?1000+bonus:0),speedPoints:a.speedPoints+(right?bonus:0)});
   });
   const result=(await getDoc(ref)).data(),choice=(await getDoc(answerRef)).data(),key=(await getDoc(keyRef)).data();
-  return {correct:key.correct,answer:choice.answer,level:result.level,score:result.score,speedPoints:result.speedPoints,elapsed:millis(choice.submittedAt)-millis(result.currentStartedAt)};
+  return {correct:key.correct,timeLimitMs:(key.seconds??30)*1000,answer:choice.answer,level:result.level,score:result.score,speedPoints:result.speedPoints,elapsed:millis(choice.submittedAt)-millis(result.currentStartedAt)};
  }
  if(action==='solo-history'){
   const s=await student(),tenant=pathId(body.tenant),link=(await getDoc(doc(studentDb,'soloLinks',tenant))).data();
@@ -230,13 +234,13 @@ export async function api(action,body={}){
   return {attemptId,questions:bank.data().questions,index:a.index,status:a.status,started:millis(a.currentStartedAt),level:a.level,score:a.score,speedPoints:a.speedPoints};
  }
  if(action==='join'){
-  const s=await student(),name=clean(body.name),gender=body.gender==='female'?'female':'male';if(name.length<2)throw Error('Vui lòng nhập họ tên.');
+  const s=await student(),name=clean(body.name),gender=body.gender==='female'?'female':'male',className=clean(body.className,40);if(name.length<2)throw Error('Vui lòng nhập họ tên.');
   const ref=doc(studentDb,'liveRooms',pin,'players',s.uid),existing=(await getDoc(ref)).data();
   if(!existing){
-   try{await setDoc(ref,{id:s.uid,name,gender,avatar:(gender==='female'?4:0)+Math.floor(Math.random()*4),joinedAt:serverTimestamp()});}
+   try{await setDoc(ref,{id:s.uid,name,gender,...(className?{className}:{}),avatar:(gender==='female'?4:0)+Math.floor(Math.random()*4),joinedAt:serverTimestamp()});}
    catch(error){if(error.code==='permission-denied')throw Object.assign(Error('Chưa thể vào phòng: phòng có thể đã bắt đầu, đã đóng hoặc quyền giáo viên bị khóa. Học sinh đã tham gia hãy dùng lại đúng trình duyệt; giáo viên kiểm tra phòng đang chờ.'),{code:error.code});throw error;}
   }
-  return {id:s.uid,name:existing?.name||name,secret:'firebase-anonymous-session'};
+  return {id:s.uid,name:existing?.name||name,className:existing?existing.className||'':className,secret:'firebase-anonymous-session'};
  }
  if(action==='state'){
   const isTeacher=!!body.token,r=await roomData(pin,isTeacher);
@@ -316,7 +320,7 @@ export async function api(action,body={}){
    if(r.mode==='race'){
     if(!players.length)throw Error('Cần ít nhất một học sinh đã vào phòng.');
     for(const p of players)tx.set(doc(db,'soloAttempts',pin+'_'+p.id),{
-     studentUid:p.id,teacherUid:u.uid,teacherEmail:u.email,bankId:pin,name:p.name,gender:p.gender,
+     studentUid:p.id,teacherUid:u.uid,teacherEmail:u.email,bankId:pin,name:p.name,gender:p.gender,...(p.className?{className:p.className}:{}),
      created:serverTimestamp(),index:0,currentStartedAt:null,level:0,score:0,speedPoints:0,status:'intro'
     });
    }
@@ -328,7 +332,7 @@ export async function api(action,body={}){
    // Concurrent accepted submissions cause retries instead of disappearing from scoring.
    const submitted=await Promise.all(r.players.map(p=>tx.get(doc(db,'liveRooms',pin,'answers',p.id+'_'+r.index))));
    const answerMap=new Map(submitted.filter(d=>d.exists()).map(d=>[d.data().studentUid,d.data()]));
-   const players=r.players.map(p=>{const a=answerMap.get(p.id);if(!a||a.answer!==q[r.index].correct)return {...p,correctNow:false};const elapsed=Math.max(0,millis(a.submittedAt)-millis(r.phaseStartedAt)),bonus=Math.max(0,500-Math.floor(elapsed/1000)*25);return {...p,correctNow:true,level:p.level+1,score:p.score+1000+bonus,speedPoints:p.speedPoints+bonus};});
+   const players=r.players.map(p=>{const a=answerMap.get(p.id);if(!a||a.answer!==q[r.index].correct)return {...p,correctNow:false};const elapsed=Math.max(0,millis(a.submittedAt)-millis(r.phaseStartedAt));if(elapsed>=(r.question?.seconds??30)*1000)return {...p,correctNow:false};const bonus=Math.max(0,500-Math.floor(elapsed/1000)*25);return {...p,correctNow:true,level:p.level+1,score:p.score+1000+bonus,speedPoints:p.speedPoints+bonus};});
    tx.update(ref,{phase:'revealed',correct:q[r.index].correct,players});
   }else if(action==='next'){
    if(r.phase!=='revealed')throw Error('Cần công bố đáp án trước.');const index=r.index+1;tx.update(ref,{index,phase:index===15?'finished':'question',question:publicQuestion(q[index]),correct:null,phaseStartedAt:serverTimestamp()});
