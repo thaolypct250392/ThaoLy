@@ -60,18 +60,27 @@ function renderHomework(work,attempts){
     const done=a.status==='finished',rank=done?1+completed.filter(b=>b.level>a.level||b.level===a.level&&b.score>a.score).length:'—';
     const count=done?15:a.index+(a.status==='answered'?1:0);
     const row=body.insertRow();
+    row.className=done?'submitted':'in-progress';
     for(const value of [rank,a.name,a.className||'—',done?'Đã nộp':'Đang làm',count+'/15',a.level+'/15',a.score])row.insertCell().textContent=value;
+    row.cells[3].className=done?'done':'pending';
    }
    scroll.append(table);article.append(heading,summary,link,scroll);byId('homework-results').replaceChildren(article);
 }
 
+let reportLoad=0;
 async function load(){
+ const current=++reportLoad;
  const [rooms,results]=await Promise.allSettled([window.sparkApi('my-rooms',{}),window.sparkApi('my-solo-results',{})]);
+ if(current!==reportLoad)return;
  byId('rooms').replaceChildren();
+ byId('individual-results').replaceChildren();
  byId('homework-results').replaceChildren();
  byId('homework-filters').hidden=true;
  if(rooms.status==='rejected')byId('status').textContent='Chưa tải được phòng trực tiếp: '+rooms.reason.message;
- if(results.status==='rejected')byId('homework-status').textContent='Chưa tải được báo cáo: '+results.reason.message;
+ if(results.status==='rejected'){
+  byId('homework-status').textContent='Chưa tải được báo cáo: '+results.reason.message;
+  byId('individual-status').textContent='Chưa tải được lượt chơi: '+results.reason.message;
+ }
  if(rooms.status==='fulfilled'){
   const live=rooms.value;
   byId('status').textContent=live.rooms.length+' phòng trực tiếp';
@@ -81,9 +90,29 @@ async function load(){
   const solo=results.value;
   setupHomeworkReport(solo);
   const homeworkIds=new Set(solo.homework.map(work=>work.id));
-  for(const attempt of solo.attempts.filter(a=>!homeworkIds.has(a.bankId))){const a=document.createElement('article'),h=document.createElement('h2');h.textContent='Chơi cá nhân · '+new Date(attempt.created).toLocaleString('vi-VN')+' · '+(attempt.status==='finished'?'Hoàn thành':'Chưa hoàn thành');a.append(h,tableRows([attempt]));byId('rooms').append(a);}
+  const individual=solo.attempts.filter(a=>!homeworkIds.has(a.bankId));
+  const finished=individual.filter(a=>a.status==='finished').length;
+  byId('individual-status').textContent=individual.length
+   ?finished+' lượt đã hoàn thành · '+(individual.length-finished)+' lượt đang làm'
+   :'Chưa ghi nhận lượt chơi qua link cá nhân chung. Kết quả qua link bài tập nằm ở mục trên.';
+  if(individual.length){
+   const scroll=document.createElement('div');scroll.className='report-scroll';
+   const table=document.createElement('table'),head=table.createTHead().insertRow();
+   for(const label of ['Học sinh','Lớp','Bắt đầu','Trạng thái','Đã làm','Đúng','Tổng điểm']){
+    const th=document.createElement('th');th.scope='col';th.textContent=label;head.append(th);
+   }
+   const body=table.createTBody();
+   for(const a of individual){
+    const done=a.status==='finished',row=body.insertRow();
+    const count=done?15:a.index+(a.status==='answered'?1:0);
+    for(const value of [a.name,a.className||'—',new Date(a.created).toLocaleString('vi-VN'),done?'Hoàn thành':'Đang làm',count+'/15',a.level+'/15',a.score])row.insertCell().textContent=value;
+    row.cells[3].className=done?'done':'pending';
+   }
+   scroll.append(table);byId('individual-results').append(scroll);
+  }
  }
- if(location.hash.startsWith('#homework'))byId(location.hash.slice(1))?.scrollIntoView();
+ if(current===1&&location.hash.startsWith('#homework'))byId(location.hash.slice(1))?.scrollIntoView();
 }
-byId('login-history').onclick=async()=>{if(await window.googleTeacherSignIn())load();};
+byId('login-history').onclick=async()=>{if(await window.googleTeacherSignIn())await load();};
 load();
+setInterval(()=>{if(document.visibilityState==='visible')load();},30000);

@@ -156,7 +156,7 @@ export async function api(action,body={}){
   return {rooms:snaps.docs.map(d=>({pin:d.id,phase:d.data().phase,created:millis(d.data().created),players:d.data().players})).sort((a,b)=>b.created-a.created)};
  }
  if(action==='my-solo-results'){
-  const snaps=await getDocs(query(collection(db,'soloAttempts'),where('teacherUid','==',u.uid),where('teacherEmail','==',u.email),orderBy('created','desc')));
+  const snaps=await getDocs(query(collection(db,'soloAttempts'),where('teacherUid','==',u.uid),where('teacherEmail','==',u.email)));
   const homework=(await getDocs(collection(db,'sparkTeachers',u.uid,'homework'))).docs.map(d=>({...d.data(),created:millis(d.data().created)}));
   return {homework,attempts:snaps.docs.map(d=>({id:d.id,...d.data(),created:millis(d.data().created)})).filter(a=>a.id!==a.bankId+'_'+a.studentUid).sort((a,b)=>b.created-a.created)};
  }
