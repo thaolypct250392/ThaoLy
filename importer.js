@@ -1,6 +1,6 @@
-import {installReviewRepair} from './review-repair.mjs?v=30.2.mathtype';
+import {installReviewRepair} from './review-repair.mjs?v=30.5.images.1';
 import { parseText } from './parser-core.mjs';
-import {readDocxFile} from './docx-reader.mjs?v=30.2.mathtype';
+import {readDocxFile} from './docx-reader.mjs?v=30.5.images.1';
 import {renderRichText,plainRichText} from './formula-core.mjs?v=30.2.mathtype';
 
 const $ = id => document.getElementById(id);

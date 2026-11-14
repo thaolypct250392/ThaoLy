@@ -1,5 +1,5 @@
 import {renderRichText,latexWarnings,latexRanges} from './formula-core.mjs?v=30.2.mathtype';
-import {raster} from './docx-images.mjs?v=30.2.mathtype';
+import {raster} from './docx-images.mjs?v=30.5.images.1';
 export function installReviewRepair(root){
  root._repairAbort?.abort();const controller=new AbortController();root._repairAbort=controller;const options={signal:controller.signal};let savedRange=null,target=null;
  const editors=card=>[card.querySelector('.review-text'),...card.querySelectorAll('.review-option')];

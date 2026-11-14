@@ -94,7 +94,7 @@ export async function readDocxFile(file,Zip=globalThis.JSZip){
  if(!Zip)throw Error('Chưa tải được bộ đọc DOCX.');const zip=await Zip.loadAsync(await file.arrayBuffer()),entry=zip.file('word/document.xml');if(!entry)throw Error('File DOCX không có word/document.xml.');
  const parse=s=>new DOMParser().parseFromString(s,'application/xml');
  const xml=parse(await entry.async('string')), images=new WeakMap();
- const {readDocxImages}=await import('./docx-images.mjs?v=30.2.mathtype');
+ const {readDocxImages}=await import('./docx-images.mjs?v=30.5.images.1');
  const embedded=await readDocxImages(xml,zip,parse);
  return readDocxXml(xml,zip.file('word/styles.xml')?parse(await zip.file('word/styles.xml').async('string')):undefined,embedded);
 }

@@ -12,19 +12,55 @@ function mediaPath(target){
  for(const part of target.split('/')){if(!part||part==='.')continue;if(part==='..')stack.pop();else stack.push(part);}
  const path=stack.join('/');return /^word\/(?:media|embeddings)\/[^/]+$/i.test(path)?path:null;
 }
+const MAX_ENCODED_IMAGE=180000;
+
+function encodeCanvas(source){
+ const png=source.toDataURL('image/png').split(',')[1];
+ if(png&&png.length<=130000)return png;
+ const scaled=document.createElement('canvas'), flattened=document.createElement('canvas');
+ for(const scale of [1,0.8,0.64,0.5,0.375,0.25,0.125]){
+  const canvas=scale===1?source:scaled;
+  if(scale!==1){
+   canvas.width=Math.max(1,Math.round(source.width*scale));
+   canvas.height=Math.max(1,Math.round(source.height*scale));
+   canvas.getContext('2d').drawImage(source,0,0,canvas.width,canvas.height);
+   const smallerPng=canvas.toDataURL('image/png').split(',')[1];
+   if(smallerPng&&smallerPng.length<=MAX_ENCODED_IMAGE)return smallerPng;
+  }
+  let jpegCanvas;
+  for(const quality of [0.88,0.72,0.55]){
+   const webp=canvas.toDataURL('image/webp',quality);
+   if(webp.startsWith('data:image/webp;base64,')&&webp.length-'data:image/webp;base64,'.length<=MAX_ENCODED_IMAGE)return webp.split(',')[1];
+   if(!jpegCanvas){
+    // JPEG needs an opaque background for transparent diagrams and equation previews.
+    flattened.width=canvas.width;
+    flattened.height=canvas.height;
+    const ctx=flattened.getContext('2d');
+    ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(canvas,0,0);
+    jpegCanvas=flattened;
+   }
+   const jpeg=jpegCanvas.toDataURL('image/jpeg',quality);
+   if(jpeg.startsWith('data:image/jpeg;base64,')&&jpeg.length-'data:image/jpeg;base64,'.length<=MAX_ENCODED_IMAGE)return jpeg.split(',')[1];
+  }
+  if(scale===1&&png&&png.length<=MAX_ENCODED_IMAGE)return png;
+ }
+ throw Error('Không thể nén ảnh trong giới hạn lưu đề.');
+}
+
 export async function raster(bytes,mime){
  const blob=new Blob([bytes],{type:mime});let image,url;
  try{
-  if(typeof createImageBitmap==='function')image=await createImageBitmap(blob);
-  else {url=URL.createObjectURL(blob);image=new Image();image.src=url;await image.decode();}
+  if(typeof createImageBitmap==='function'){
+   try{image=await createImageBitmap(blob);}catch{/* Try the browser image element below. */}
+  }
+  if(!image){url=URL.createObjectURL(blob);image=new Image();image.src=url;await image.decode();}
   const width=image.width,height=image.height;
   if(!width||!height||width*height>40000000)throw Error('Ảnh quá lớn hoặc hỏng.');
   const canvas=document.createElement('canvas');const scale=Math.min(1,1200/width,1200/height);canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale));
   const ctx=canvas.getContext('2d');if(!ctx)throw Error('Không tạo được ảnh.');ctx.drawImage(image,0,0,canvas.width,canvas.height);
-  let encoded=canvas.toDataURL('image/png').split(',')[1];
-  if(encoded.length>130000){const webp=canvas.toDataURL('image/webp',0.9).split(',')[1];if(webp.length<encoded.length)encoded=webp;}
-  if(encoded.length>180000)throw Error('Ảnh vượt giới hạn sau khi nén; hãy giảm kích thước ảnh trong Word.');
-  return '[[PIC:'+encoded+']]';
+  return '[[PIC:'+encodeCanvas(canvas)+']]';
  }finally{image?.close?.();if(url)URL.revokeObjectURL(url);}
 }
 export async function readDocxImages(xml,zip,parse){
@@ -53,7 +89,7 @@ export async function readDocxImages(xml,zip,parse){
     if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0)throw Error('Kích thước ảnh không hợp lệ.');
     const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');if(!ctx)throw Error('Không tạo được ảnh.');
     const scale=Math.min(3,1200/w,800/h);renderer.renderToContext(bytes,ctx,{viewWidth:Math.max(32,Math.ceil(w*scale)),viewHeight:Math.max(24,Math.ceil(h*scale))});
-    const encoded=canvas.toDataURL('image/png').split(',')[1];if(!encoded||encoded.length>180000)throw Error('Ảnh WMF/EMF quá lớn.');
+    const encoded=encodeCanvas(canvas);
     result={token:'[['+(isMath?'IMG':'PIC')+':'+encoded+']]',warning:isMath?'MathType được giữ bằng ảnh xem trước; cô kiểm tra vì phông ký hiệu có thể khác máy gốc.':''};
    }
   }else{
