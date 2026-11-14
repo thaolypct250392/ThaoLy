@@ -1,6 +1,6 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
 import {getAuth,GoogleAuthProvider,signInWithPopup,signInAnonymously,signOut,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js';
-import {initializeFirestore,getFirestore,doc,collection,getDoc,getDocs,setDoc,updateDoc,writeBatch,query,where,serverTimestamp,onSnapshot,runTransaction,orderBy,limit,arrayUnion,arrayRemove} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
+import {initializeFirestore,getFirestore,doc,collection,getDoc,getDocs,getDocsFromServer,setDoc,updateDoc,writeBatch,query,where,serverTimestamp,onSnapshot,runTransaction,orderBy,limit,arrayUnion,arrayRemove} from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
 import {levels} from './samples.mjs';
 import {loadConnection} from './connection.mjs';
 const connection=await loadConnection();
@@ -110,7 +110,7 @@ export async function api(action,body={}){
   const ref=doc(db,'sparkAccess',email),old=(await getDoc(ref)).data();
   await setDoc(ref,{email,label:clean(body.label||old?.label||email,100),enabled:action==='admin-grant'?true:!body.locked,updatedAt:serverTimestamp()});return {ok:true};
  }
- const teacherActions=['create-homework','teacher-link','bank-info','read-bank','list-banks','publish-bank','activate-bank','create','my-rooms','my-solo-results','questions','start','reveal','next','end-room','prepare-solo'];
+ const teacherActions=['create-homework','teacher-link','bank-info','read-bank','list-banks','publish-bank','activate-bank','create','my-rooms','my-solo-results','homework-results','questions','start','reveal','next','end-room','prepare-solo'];
  const u=teacherActions.includes(action)?await teacher():null;
  if(action==='teacher-link')return {tenant:u.uid,email:u.email};
  if(action==='bank-info'){const q=(await getDoc(doc(db,'sparkTeachers',u.uid,'settings','active'))).data()?.questions;return {count:q?.length||0,preview:q?.[0]?.text||'Chưa lưu bộ đề',custom:!!q};}
@@ -154,6 +154,17 @@ export async function api(action,body={}){
  if(action==='my-rooms'){
   const snaps=await getDocs(query(collection(db,'liveRooms'),where('teacherUid','==',u.uid),where('teacherEmail','==',u.email),orderBy('created','desc'),limit(100)));
   return {rooms:snaps.docs.map(d=>({pin:d.id,phase:d.data().phase,created:millis(d.data().created),players:d.data().players})).sort((a,b)=>b.created-a.created)};
+ }
+ if(action==='homework-results'){
+  const id=pathId(body.homework);
+  const assignment=await getDoc(doc(db,'sparkTeachers',u.uid,'homework',id));
+  if(!assignment.exists())throw Error('Không tìm thấy bài tập của tài khoản này.');
+  const rows=await getDocsFromServer(query(collection(db,'soloAttempts'),
+   where('teacherUid','==',u.uid),where('teacherEmail','==',u.email)));
+  return {attempts:rows.docs.flatMap(row=>{
+   const attempt=row.data();
+   return attempt.bankId===id?[{...attempt,id:row.id,created:millis(attempt.created)}]:[];
+  }).sort((a,b)=>b.created-a.created)};
  }
  if(action==='my-solo-results'){
   const snaps=await getDocs(query(collection(db,'soloAttempts'),where('teacherUid','==',u.uid),where('teacherEmail','==',u.email)));
